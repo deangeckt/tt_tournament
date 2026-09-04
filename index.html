@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="ניהול טורנירי טניס שולחן — הגרלה, תוצאות וטבלאות" />
+    <title>טורניר — ניהול טניס שולחן</title>
+    <script>
+      // Set direction before the bundle loads. Without this the page paints LTR for
+      // a moment on every load, which reads as a broken layout in Hebrew.
+      try {
+        var l = localStorage.getItem('tt.locale');
+        if (l !== 'he' && l !== 'en') l = navigator.language && navigator.language.toLowerCase().indexOf('en') === 0 ? 'en' : 'he';
+        document.documentElement.lang = l;
+        document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

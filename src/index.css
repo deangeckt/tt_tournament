@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Heebo', ui-sans-serif, system-ui, sans-serif;
+
+  --color-court-50: oklch(0.97 0.02 240);
+  --color-court-100: oklch(0.93 0.04 240);
+  --color-court-200: oklch(0.86 0.07 240);
+  --color-court-400: oklch(0.68 0.15 245);
+  --color-court-500: oklch(0.6 0.18 250);
+  --color-court-600: oklch(0.52 0.19 252);
+  --color-court-700: oklch(0.44 0.17 254);
+  --color-court-900: oklch(0.28 0.09 256);
+  --color-court-950: oklch(0.2 0.06 258);
+
+  --color-ball-400: oklch(0.83 0.17 68);
+  --color-ball-500: oklch(0.76 0.19 62);
+  --color-ball-600: oklch(0.68 0.19 55);
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-court-50);
+  color: var(--color-court-950);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--color-court-950);
+    color: var(--color-court-50);
+  }
+}
+
+/* Scores and seeds must never be reordered by the bidi algorithm. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
