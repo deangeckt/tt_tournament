@@ -14,14 +14,14 @@ export function Home() {
     <>
       <PageTitle sub={t('app.tagline')}>{t('nav.home')}</PageTitle>
 
-      <Button className="mb-6 w-full" onClick={() => navigate({ name: 'new' })}>
-        {t('home.create')}
+      <Button className="mb-6 w-full text-lg" onClick={() => navigate({ name: 'new' })}>
+        + {t('home.create')}
       </Button>
 
       {loaded && tournaments.length === 0 ? (
         <Card className="text-center">
-          <p className="font-medium">{t('home.empty')}</p>
-          <p className="mt-1 text-sm text-court-600 dark:text-court-200">{t('home.emptyHint')}</p>
+          <p className="text-lg font-medium">{t('home.empty')}</p>
+          <p className="mt-1 text-court-600 dark:text-court-200">{t('home.emptyHint')}</p>
         </Card>
       ) : null}
 
@@ -32,10 +32,13 @@ export function Home() {
             <li key={tournament.id}>
               <button
                 onClick={() => navigate({ name: 'run', id: tournament.id })}
-                className="w-full rounded-2xl bg-white p-4 text-start ring-1 ring-court-100 transition hover:ring-court-300 dark:bg-court-900 dark:ring-court-800 dark:hover:ring-court-600"
+                title={t('home.resume')}
+                className="w-full rounded-2xl bg-white p-5 text-start ring-1 ring-court-100 transition-all
+                  duration-150 hover:-translate-y-px hover:bg-court-50 hover:shadow-md hover:ring-court-400
+                  active:scale-[0.99] dark:bg-court-900 dark:ring-court-800 dark:hover:bg-court-800"
               >
-                <div className="font-semibold">{tournament.name}</div>
-                <div className="mt-1 text-sm text-court-600 dark:text-court-200">
+                <div className="text-lg font-bold">{tournament.name}</div>
+                <div className="mt-1 text-court-600 dark:text-court-200">
                   {dateFormat.format(new Date(tournament.date))} ·{' '}
                   {t('home.players', { count: playerCount })}
                 </div>

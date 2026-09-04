@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion } from 'motion/react'
 import type { BestOf, GameScore, MatchResult, ScoreMode } from '../../engine/types'
 import { gamesToWin, validateGame } from '../../engine/result'
 import { Button, Score } from '../common/ui'
+import { Sheet } from '../common/Sheet'
 
 interface Props {
   open: boolean
@@ -23,33 +23,13 @@ function scorelines(bestOf: BestOf): Array<[number, number]> {
   return Array.from({ length: target }, (_, i) => [target, i] as [number, number])
 }
 
-export function ScoreSheet(props: Props) {
+export function ScoreSheet({ matchKey, ...props }: Props & { matchKey?: string }) {
   return (
-    <AnimatePresence>
-      {props.open ? (
-        <>
-          <motion.div
-            className="fixed inset-0 z-30 bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={props.onClose}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg rounded-t-3xl bg-white p-5 pb-8 shadow-2xl dark:bg-court-900"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-          >
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-court-200 dark:bg-court-700" />
-            <SheetBody {...props} />
-          </motion.div>
-        </>
-      ) : null}
-    </AnimatePresence>
+    <Sheet open={props.open} onClose={props.onClose}>
+      {/* Keyed by match, so pointing the sheet at a different match remounts the body
+          and its state starts fresh — no effect needed to clear half-entered games. */}
+      <SheetBody key={matchKey} {...props} />
+    </Sheet>
   )
 }
 
@@ -72,20 +52,28 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="min-w-0 flex-1 truncate text-lg font-semibold">{nameA}</span>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <span className="min-w-0 flex-1 truncate text-lg font-bold">{nameA}</span>
         <span className="shrink-0 text-court-400">–</span>
-        <span className="min-w-0 flex-1 truncate text-end text-lg font-semibold">{nameB}</span>
+        <span className="min-w-0 flex-1 truncate text-end text-lg font-bold">{nameB}</span>
       </div>
 
       {scoreMode === 'quick' ? (
         <div className="space-y-2">
           {scorelines(bestOf).map(([win, lose]) => (
             <div key={lose} className="grid grid-cols-2 gap-2">
-              <Button variant="subtle" onClick={() => onSave({ kind: 'quick', a: win, b: lose })}>
+              <Button
+                variant="subtle"
+                className="text-lg"
+                onClick={() => onSave({ kind: 'quick', a: win, b: lose })}
+              >
                 <Score a={win} b={lose} />
               </Button>
-              <Button variant="subtle" onClick={() => onSave({ kind: 'quick', a: lose, b: win })}>
+              <Button
+                variant="subtle"
+                className="text-lg"
+                onClick={() => onSave({ kind: 'quick', a: lose, b: win })}
+              >
                 <Score a={lose} b={win} />
               </Button>
             </div>
@@ -104,7 +92,7 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
                   min={0}
                   value={game.a || ''}
                   onChange={(e) => setGame(i, { a: Number(e.target.value) || 0 })}
-                  className="w-full rounded-xl bg-court-100 px-3 py-2 text-center text-lg tabular-nums dark:bg-court-800"
+                  className="w-full rounded-xl bg-court-100 px-3 py-3 text-center text-xl tabular-nums focus:ring-2 focus:ring-court-500 focus:outline-none dark:bg-court-800"
                 />
                 <input
                   type="number"
@@ -112,7 +100,7 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
                   min={0}
                   value={game.b || ''}
                   onChange={(e) => setGame(i, { b: Number(e.target.value) || 0 })}
-                  className="w-full rounded-xl bg-court-100 px-3 py-2 text-center text-lg tabular-nums dark:bg-court-800"
+                  className="w-full rounded-xl bg-court-100 px-3 py-3 text-center text-xl tabular-nums focus:ring-2 focus:ring-court-500 focus:outline-none dark:bg-court-800"
                 />
                 <span
                   className={`w-4 shrink-0 text-sm ${problem ? 'text-ball-600' : 'text-transparent'}`}
@@ -125,12 +113,12 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
           })}
           {!detailedDone && games.length < bestOf ? (
             <Button
-              variant="ghost"
+              variant="subtle"
               size="sm"
               className="w-full"
               onClick={() => setGames((prev) => [...prev, { a: 0, b: 0 }])}
             >
-              +
+              + {t('score.addGame')}
             </Button>
           ) : null}
           <Button
@@ -143,12 +131,12 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-court-100 pt-4 dark:border-court-800">
+      <div className="mt-5 flex flex-wrap gap-2 border-t border-court-100 pt-4 dark:border-court-800">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onSave({ kind: 'walkover', winner: 'a' })}
-          title={nameA}
+          title={`${t('match.walkover')}: ${nameA}`}
         >
           {t('match.walkover')} ←
         </Button>
@@ -156,7 +144,7 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
           variant="ghost"
           size="sm"
           onClick={() => onSave({ kind: 'walkover', winner: 'b' })}
-          title={nameB}
+          title={`${t('match.walkover')}: ${nameB}`}
         >
           → {t('match.walkover')}
         </Button>
@@ -166,7 +154,7 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
             {t('common.delete')}
           </Button>
         ) : null}
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="subtle" size="sm" onClick={onClose}>
           {t('common.close')}
         </Button>
       </div>

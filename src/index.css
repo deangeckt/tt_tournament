@@ -20,6 +20,10 @@
 
 :root {
   color-scheme: light dark;
+  /* Everything in Tailwind is rem-based, so this scales the whole app at once.
+     Hebrew benefits from a little extra size — its letterforms have no ascenders
+     or descenders to help distinguish them at small sizes. */
+  font-size: 17.5px;
 }
 
 html,
@@ -34,6 +38,7 @@ body {
   color: var(--color-court-950);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  line-height: 1.6;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,9 +48,68 @@ body {
   }
 }
 
+/*
+ * Tailwind's preflight sets `button { cursor: default }`, so on a desktop nothing
+ * in the app reads as clickable. Restore the pointer for everything interactive,
+ * and show the not-allowed cursor when an action is genuinely unavailable.
+ */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+a[href],
+label,
+summary,
+select,
+[tabindex]:not([tabindex='-1']) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
+/* A visible, consistent keyboard focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-court-500);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
 /* Scores and seeds must never be reordered by the bidi algorithm. */
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Anything that changed in the last moment gets a brief highlight, so a tap always
+   produces something the eye can catch. */
+@keyframes tt-flash {
+  from {
+    background-color: color-mix(in oklch, var(--color-ball-400) 45%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.tt-flash {
+  animation: tt-flash 1.1s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-flash {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media print {

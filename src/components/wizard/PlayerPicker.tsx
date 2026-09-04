@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../store/useAppStore'
-import { Button, inputClass } from '../common/ui'
+import { Button, Chip, inputClass } from '../common/ui'
 import type { PlayerId } from '../../engine/types'
 
 /**
@@ -72,14 +72,14 @@ export function PlayerPicker({
         {available.length > 0 ? (
           <button
             type="button"
-            className="underline underline-offset-2"
+            className="rounded-lg px-2 py-1 underline underline-offset-2 transition hover:bg-court-100 dark:hover:bg-court-800"
             onClick={() => onChange(available.map((p) => p.id))}
           >
             {t('roster.addAll')}
           </button>
         ) : null}
         {selected.length > 0 ? (
-          <button type="button" className="underline underline-offset-2" onClick={() => onChange([])}>
+          <button type="button" className="rounded-lg px-2 py-1 underline underline-offset-2 transition hover:bg-court-100 dark:hover:bg-court-800" onClick={() => onChange([])}>
             {t('roster.clearSelection')}
           </button>
         ) : null}
@@ -94,19 +94,16 @@ export function PlayerPicker({
           {available.map((player) => {
             const on = chosen.has(player.id)
             return (
-              <button
+              <Chip
                 key={player.id}
-                type="button"
+                selected={on}
                 onClick={() => toggle(player.id)}
-                aria-pressed={on}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  on
-                    ? 'bg-court-600 text-white'
-                    : 'bg-white text-court-700 ring-1 ring-court-200 hover:ring-court-400 dark:bg-court-900 dark:text-court-100 dark:ring-court-700'
-                }`}
+                title={on ? t('roster.tapToRemove') : t('roster.tapToAdd')}
+                className="!rounded-full"
               >
+                {on ? '✓ ' : ''}
                 {player.name}
-              </button>
+              </Chip>
             )
           })}
         </div>

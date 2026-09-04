@@ -5,7 +5,9 @@ import { newId, useAppStore } from '../store/useAppStore'
 import { generateSeed } from '../engine/rng'
 import { suggestedConfig, validateConfig } from '../engine/advisor'
 import type { BestOf, FormatConfig, Level, PlayerId, ScoreMode, Tournament } from '../engine/types'
-import { Button, Card, Field, PageTitle, inputClass } from '../components/common/ui'
+import { Button, Card, Chip, Field, PageTitle, inputClass } from '../components/common/ui'
+import { Tooltip } from '../components/common/Tooltip'
+import { toast } from '../store/useToasts'
 import { PlayerPicker } from '../components/wizard/PlayerPicker'
 import { FormatPicker } from '../components/wizard/FormatPicker'
 
@@ -78,6 +80,7 @@ export function NewTournament() {
       updatedAt: Date.now(),
     }
     await saveTournament(tournament)
+    toast(t('feedback.tournamentCreated'))
     navigate({ name: 'run', id: tournament.id })
   }
 
@@ -153,41 +156,40 @@ export function NewTournament() {
       {step > 0 ? (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {levels.map((level, i) => (
-            <button
+            <Chip
               key={level.key}
-              type="button"
+              selected={i === activeLevel}
               onClick={() => setActiveLevel(i)}
-              aria-pressed={i === activeLevel}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                i === activeLevel
-                  ? 'bg-court-600 text-white'
-                  : 'bg-court-100 text-court-700 dark:bg-court-800 dark:text-court-100'
-              }`}
+              title={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
             >
               {level.name} · {level.playerIds.length}
-            </button>
+            </Chip>
           ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setLevels((prev) => [...prev, emptyLevel(prev.length)])
-              setActiveLevel(levels.length)
-            }}
-          >
-            +
-          </Button>
-          {levels.length > 1 ? (
+          <Tooltip label={t('wizard.addLevelHint')}>
             <Button
-              variant="ghost"
+              variant="subtle"
               size="sm"
               onClick={() => {
-                setLevels((prev) => prev.filter((_, i) => i !== activeLevel))
-                setActiveLevel(0)
+                setLevels((prev) => [...prev, emptyLevel(prev.length)])
+                setActiveLevel(levels.length)
               }}
             >
-              ✕
+              + {t('wizard.addLevel')}
             </Button>
+          </Tooltip>
+          {levels.length > 1 ? (
+            <Tooltip label={t('wizard.removeLevelHint')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setLevels((prev) => prev.filter((_, i) => i !== activeLevel))
+                  setActiveLevel(0)
+                }}
+              >
+                ✕
+              </Button>
+            </Tooltip>
           ) : null}
         </div>
       ) : null}
@@ -215,19 +217,13 @@ export function NewTournament() {
         <>
           <div className="mb-4 flex flex-wrap gap-2">
             {([3, 5, 7] as const).map((value) => (
-              <button
+              <Chip
                 key={value}
-                type="button"
+                selected={current.bestOf === value}
                 onClick={() => patchLevel(activeLevel, { bestOf: value })}
-                aria-pressed={current.bestOf === value}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                  current.bestOf === value
-                    ? 'bg-court-600 text-white'
-                    : 'bg-court-100 text-court-700 dark:bg-court-800 dark:text-court-100'
-                }`}
               >
                 {t('wizard.bestOfValue', { count: value })}
-              </button>
+              </Chip>
             ))}
           </div>
           <FormatPicker
