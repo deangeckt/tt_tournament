@@ -2,8 +2,9 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// GitHub Pages serves this repo at /TT_tournament/.
-// Without the matching `base`, the deployed page is a blank screen with 404s on every asset.
+// Relative base rather than a hard-coded '/<repo>/'. Hash routing means the document
+// path never changes, so relative asset URLs always resolve — which lets a fork under
+// any repo name, or a custom domain, work with no config change.
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
