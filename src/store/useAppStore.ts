@@ -26,6 +26,8 @@ interface AppState {
   openTournament: (id: string) => Promise<void>
   saveTournament: (tournament: Tournament) => Promise<void>
   removeTournament: (id: string) => Promise<void>
+  /** Put a deleted tournament back exactly as it was, for the delete toast's undo. */
+  restoreTournament: (tournament: Tournament) => Promise<void>
 
   addRosterPlayer: (name: string) => Promise<Player | undefined>
   removeRosterPlayer: (id: string) => Promise<void>
@@ -74,6 +76,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     await deleteTournament(id)
     const current = get().current?.id === id ? undefined : get().current
     set({ current, tournaments: await listTournaments() })
+  },
+
+  async restoreTournament(tournament) {
+    // Deliberately not saveTournament: that stamps updatedAt, which would shuffle a
+    // restored tournament to the top of a list ordered by recency. Undo should leave
+    // no trace.
+    await putTournament(tournament)
+    set({ tournaments: await listTournaments() })
   },
 
   async addRosterPlayer(name) {

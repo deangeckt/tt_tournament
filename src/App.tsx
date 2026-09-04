@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRoute, hrefFor, navigate } from './router'
-import { applyLocale, detectLocale, type Locale } from './i18n'
+import { applyLocale, detectLocale } from './i18n'
 import { useAppStore } from './store/useAppStore'
 import { requestPersistence } from './store/db'
 import { Home } from './routes/Home'
@@ -13,27 +13,6 @@ import { ViewShared } from './routes/ViewShared'
 import { Button } from './components/common/ui'
 import { Tooltip } from './components/common/Tooltip'
 import { ToastHost } from './components/common/Toast'
-import { toast } from './store/useToasts'
-
-function LanguageToggle() {
-  const { t, i18n } = useTranslation()
-  const next: Locale = i18n.language === 'he' ? 'en' : 'he'
-  return (
-    <Tooltip label={next === 'en' ? 'Switch to English' : 'מעבר לעברית'} side="bottom">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          void i18n.changeLanguage(next)
-          applyLocale(next)
-          toast(t('feedback.languageChanged', { lng: next }), 'info')
-        }}
-      >
-        {t('common.language')}
-      </Button>
-    </Tooltip>
-  )
-}
 
 function Header() {
   const { t } = useTranslation()
@@ -83,7 +62,6 @@ function Header() {
             </Button>
           </Tooltip>
         ) : null}
-        <LanguageToggle />
       </div>
     </header>
   )

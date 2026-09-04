@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BestOf, Level, PlayerId, ScoreMode, Tournament } from '../../engine/types'
 import { useAppStore } from '../../store/useAppStore'
-import { Button, Chip, Field, inputClass } from '../common/ui'
+import { Button, Chip, Field, inputClass, Ltr } from '../common/ui'
 import { Sheet } from '../common/Sheet'
+import { navigate } from '../../router'
 import { Tooltip } from '../common/Tooltip'
 import { toast } from '../../store/useToasts'
 import { DrawEditor } from './DrawEditor'
@@ -37,9 +38,12 @@ export function EditSheet({
   const redrawLevel = useAppStore((s) => s.redrawLevel)
   const toggleWithdrawn = useAppStore((s) => s.toggleWithdrawn)
   const addRosterPlayer = useAppStore((s) => s.addRosterPlayer)
+  const removeTournament = useAppStore((s) => s.removeTournament)
+  const restoreTournament = useAppStore((s) => s.restoreTournament)
 
   const [newName, setNewName] = useState('')
   const [confirmRedraw, setConfirmRedraw] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [manualDraw, setManualDraw] = useState(false)
 
   const nameOf = (id: PlayerId) =>
@@ -231,8 +235,8 @@ export function EditSheet({
           ) : null}
         </div>
 
-        {/* The draw itself: reshuffle it, or take it apart by hand. The seed lives
-            on the tournament page, where everyone can read it off the screen. */}
+        {/* The draw itself: reshuffle it, take it apart by hand, or read off the
+            seed that reproduces it — all one subject, so they sit together. */}
         <div className="space-y-3 border-t border-court-100 pt-4 dark:border-court-800">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-court-700 dark:text-court-200">
@@ -291,6 +295,66 @@ export function EditSheet({
           {manualDraw ? (
             <DrawEditor tournament={tournament} level={level} playedCount={playedCount} />
           ) : null}
+
+          <div className="rounded-xl bg-court-50 p-3 text-court-600 dark:bg-court-800/60 dark:text-court-200">
+            <div className="flex flex-wrap items-center gap-2">
+              <span aria-hidden="true">🎲</span>
+              <span className="font-medium">{t('run.seedLabel')}</span>
+              <span className="text-lg font-bold text-court-900 dark:text-court-50">
+                <Ltr>{level.seed}</Ltr>
+              </span>
+            </div>
+            <p className="mt-1 text-sm">
+              {level.manualOrder ? t('run.seedManual') : t('run.seedHint')}
+            </p>
+          </div>
+        </div>
+
+        {/* Deleting is the one edit that cannot re-derive itself, so it sits last,
+            behind a confirm, and hands back an undo that writes the record it just
+            captured — nothing about the tournament is read from the store again. */}
+        <div className="space-y-3 border-t border-court-100 pt-4 dark:border-court-800">
+          <span className="block font-medium text-court-700 dark:text-court-200">
+            {t('edit.deleteSection')}
+          </span>
+
+          {confirmDelete ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-ball-600">
+                {t('edit.deleteWarn', { name: tournament.name })}
+              </span>
+              <div className="flex-1" />
+              <Button variant="subtle" size="sm" onClick={() => setConfirmDelete(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  const deleted = tournament
+                  setConfirmDelete(false)
+                  onClose()
+                  void removeTournament(deleted.id)
+                  navigate({ name: 'home' })
+                  toast(t('edit.deleteDone', { name: deleted.name }), 'warn', {
+                    label: t('feedback.undo'),
+                    run: () => {
+                      void restoreTournament(deleted)
+                      toast(t('edit.deleteUndone', { name: deleted.name }))
+                    },
+                  })
+                }}
+              >
+                🗑 {t('edit.delete')}
+              </Button>
+            </div>
+          ) : (
+            <Tooltip label={t('edit.deleteHint')}>
+              <Button variant="subtle" size="sm" onClick={() => setConfirmDelete(true)}>
+                🗑 {t('edit.delete')}
+              </Button>
+            </Tooltip>
+          )}
         </div>
 
         <Button className="w-full" onClick={onClose}>

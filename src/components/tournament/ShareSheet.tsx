@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
 import type { Tournament } from '../../engine/types'
 import { SAFE_URL_LENGTH, shareUrl } from '../../share/payload'
+import { SHORTENABLE_URL_LENGTH, shortenUrl } from '../../share/shorten'
 import { summaryText } from '../../share/summary'
 import { Button, Ltr } from '../common/ui'
 import { Sheet } from '../common/Sheet'
@@ -20,9 +21,16 @@ export function ShareSheet({
   const { t } = useTranslation()
   /** Carries the url it was generated from, so a stale code is never shown. */
   const [qr, setQr] = useState<{ url: string; data: string } | null>(null)
+  /** Also carries its long url: a roster edit invalidates the short link. */
+  const [short, setShort] = useState<{ long: string; url: string } | null>(null)
+  const [shortening, setShortening] = useState(false)
 
-  const url = useMemo(() => (open ? shareUrl(tournament) : ''), [open, tournament])
-  const tooLong = url.length > SAFE_URL_LENGTH
+  const longUrl = useMemo(() => (open ? shareUrl(tournament) : ''), [open, tournament])
+  const tooLong = longUrl.length > SAFE_URL_LENGTH
+  const shortUrl = short?.long === longUrl ? short.url : null
+  // Everything downstream — clipboard, QR, WhatsApp — uses whichever link is current,
+  // so shortening is one decision rather than four.
+  const url = shortUrl ?? longUrl
   const summary = useMemo(() => (open ? summaryText(tournament, t) : ''), [open, tournament, t])
   const message = tooLong ? summary : `${summary}\n\n${url}`
 
@@ -31,7 +39,7 @@ export function ShareSheet({
     let live = true
     // A QR code has a hard capacity, and a big tournament simply will not fit. That
     // is not an error worth showing — the link and the printout still work — so the
-    // block is dropped instead.
+    // block is dropped instead. A shortened link always fits.
     QRCode.toDataURL(url, { margin: 1, width: 320, errorCorrectionLevel: 'L' })
       .then((data) => {
         if (live) setQr({ url, data })
@@ -51,6 +59,22 @@ export function ShareSheet({
     } catch {
       toast(t('feedback.copyFailed'), 'warn')
     }
+  }
+
+  const shorten = async () => {
+    if (longUrl.length > SHORTENABLE_URL_LENGTH) {
+      toast(t('share.shortenTooLong'), 'warn')
+      return
+    }
+    setShortening(true)
+    const result = await shortenUrl(longUrl)
+    setShortening(false)
+    if (!result) {
+      toast(t('share.shortenFailed'), 'warn')
+      return
+    }
+    setShort({ long: longUrl, url: result })
+    toast(t('share.shortened'))
   }
 
   const print = () => {
@@ -78,7 +102,26 @@ export function ShareSheet({
                 <Button size="sm" onClick={() => void copy()}>
                   🔗 {t('share.copyLink')}
                 </Button>
+                {shortUrl ? (
+                  <Button variant="subtle" size="sm" onClick={() => setShort(null)}>
+                    {t('share.showLong')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    disabled={shortening}
+                    onClick={() => void shorten()}
+                  >
+                    ✂️ {shortening ? t('share.shortening') : t('share.shorten')}
+                  </Button>
+                )}
               </div>
+              {shortUrl ? null : (
+                <p className="text-xs text-court-500 dark:text-court-300">
+                  {t('share.shortenHint')}
+                </p>
+              )}
             </>
           )}
         </section>

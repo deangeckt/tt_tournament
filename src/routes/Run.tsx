@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { useAppStore } from '../store/useAppStore'
 import { resolveLevel, type MatchView } from '../engine/resolve'
 import type { MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
-import { Button, Card, Chip, Ltr, PageTitle } from '../components/common/ui'
+import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { GroupTable } from '../components/group/GroupTable'
 import { MatchCard } from '../components/match/MatchCard'
 import { participantLabel, roundLabel } from '../components/match/labels'
@@ -212,21 +212,6 @@ export function Run({ id }: { id: string }) {
           </div>
         </section>
       ) : null}
-
-      {/* The draw code belongs in front of the room, not behind an Edit button:
-          it is the thing a player asks about when they doubt the draw. */}
-      <Card className="no-print text-court-600 dark:text-court-200">
-        <div className="flex items-center gap-2">
-          <span aria-hidden="true">🎲</span>
-          <span className="font-medium">{t('run.seedLabel')}</span>
-        </div>
-        <div className="mt-1 text-xl font-bold text-court-900 dark:text-court-50">
-          <Ltr>{level.seed}</Ltr>
-        </div>
-        <p className="mt-1 text-sm">
-          {level.manualOrder ? t('run.seedManual') : t('run.seedHint')}
-        </p>
-      </Card>
 
       <ScoreSheet
         matchKey={editing?.match.id}

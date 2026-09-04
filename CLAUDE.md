@@ -115,7 +115,8 @@ group and match *ids* rather than labels for exactly this reason.
 
 ### Getting data out
 
-There is no backend, so leaving the device is a first-class feature with two shapes:
+There is no backend, so leaving the device is a first-class feature with three shapes.
+The first two never touch a server; the third does, and says so:
 
 - **`src/share/payload.ts`** — one tournament, lz-compressed into a URL fragment
   (`#/v/<payload>`), decoded by the read-only `ViewShared` route. Because everything is
@@ -125,6 +126,14 @@ There is no backend, so leaving the device is a first-class feature with two sha
 - **`src/store/backup.ts`** — everything, as one JSON file, exported/imported/shared
   from the settings screen. Import is keyed by id and merges by default, so re-importing
   a file you already have is a no-op rather than a pile of duplicates.
+- **`src/share/shorten.ts`** — the one place data leaves the device without the user
+  carrying it. A share url holds the whole tournament in its fragment, so shortening it
+  means uploading that tournament to someone else's server: the exact property the
+  fragment was chosen to protect. It is therefore never automatic — the user asks per
+  link, and the sheet says plainly what it costs. Providers are tried in order because
+  none promises uptime, and the only selection criterion is a permissive CORS header;
+  that alone rules out is.gd, tinyurl and cleanuri, which work from a server and fail
+  from a page with an unhelpful generic network error.
 
 ### The tiebreak chain
 
@@ -191,6 +200,21 @@ or one and not the other depending on how long the pointer rested — three cont
 far as the user is concerned. `Tooltip` keeps the label in the accessibility tree via a
 visually hidden `aria-describedby` node, so dropping `title` costs nothing.
 
+**Wallpaper.** The doodle background (`body::before` in `index.css`) is a CSS **mask**,
+not a background image: only the artwork's alpha matters and the ink colour is the
+layer's own `background-color`, so one file serves light and dark instead of needing a
+second, inverted copy. `src/assets/doodles.webp` (~23KB) is derived from
+`doodle.webp`, the 2048px master, which is not shipped — nothing imports it. Both
+`ffmpeg` recipes are in the CSS comment; regenerate rather than hand-edit.
+
+The art arrived as a 1.5MB JPEG whose white paper was never quite white. That noise is
+invisible and was most of the file: it gives every empty pixel a slightly different
+value, which is the worst case for any compressor. Flattening the paper to pure white
+is what took the master to 106KB losslessly, and posterising the derived alpha to 8
+levels is what takes the shipped tile to 23KB. Quantise to the *nearest* bucket, never
+a bucket centre — an offset that lifts pure white off zero lays a faint wash over the
+whole viewport, which is easy to miss and impossible to unsee.
+
 **Editing.** Because the engine re-derives from source, almost everything is safe to
 change mid-tournament. Only two operations are guarded: re-drawing (discards that
 level's results) and removing a player who has already played (offer withdrawal
@@ -201,9 +225,14 @@ instead).
 Working: the engine, the setup wizard with the illustrated format picker and duration
 advice, saved roster, seeded draw, hand-editable draw, quick/detailed score entry, live
 ITTF standings, round robin, single elimination, groups→knockout, multiple levels,
-in-tournament editing, withdrawals, Hebrew/English RTL, player profiles (photo, career
-record, tournament history), share links + QR + print/PDF, and JSON export/import from
-the settings screen.
+in-tournament editing, withdrawals, deleting a tournament (confirmed, with undo),
+Hebrew/English RTL, player profiles (photo, career record, tournament history), share
+links + QR + print/PDF, opt-in link shortening, JSON export/import from the settings
+screen, and the doodle wallpaper.
+
+Two things moved and are easy to look for in the wrong place: the **language toggle**
+lives on the settings screen, not the header, and the **draw seed** is in the edit
+sheet next to redraw and the manual draw, not on the tournament page.
 
 Not built yet:
 

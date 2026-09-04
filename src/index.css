@@ -49,6 +49,62 @@ body {
 }
 
 /*
+ * Doodle wallpaper: one seamlessly tiling sheet of table-tennis line art.
+ *
+ * It is used as a *mask*, not an image: only the alpha channel matters, and the ink
+ * colour is this layer's own background-color. So one file serves both themes
+ * instead of needing a second, inverted copy, and the ink is a court colour rather
+ * than the artwork's black.
+ *
+ * assets/doodles.webp is derived from assets/doodle.webp, the full-resolution master
+ * (2048px, not shipped — nothing imports it). Two steps do the shrinking: the paper
+ * is stretched to pure white, and the alpha is posterised to 8 levels. The artwork
+ * arrived as a JPEG whose white was never quite white, and that invisible noise was
+ * most of its 1.5MB — it gives every empty pixel a slightly different value, which is
+ * the worst case for both compressors. Quantise to the nearest bucket, never a bucket
+ * centre: an offset that lifts pure white off zero puts a faint wash over the whole
+ * viewport, which is easy to miss and impossible to unsee.
+ *
+ * To regenerate after editing the master:
+ *
+ *   ffmpeg -i src/assets/doodle.webp -vf "scale=768:768:flags=lanczos,format=rgba,\
+ *     geq=r=0:g=0:b=0:a='clip(floor((255-r(X,Y))/32+0.5)*32,0,255)'" -pix_fmt ya8 d.png
+ *   ffmpeg -i d.png -c:v libwebp -lossless 1 -compression_level 6 \
+ *     src/assets/doodles.webp
+ *
+ * The master itself came from the original JPEG with:
+ *
+ *   ffmpeg -i doodle.jpg -vf "format=gray,geq=lum='clip((lum(X,Y)-30)*255/200,0,255)'"\
+ *     -c:v libwebp -lossless 1 -compression_level 6 src/assets/doodle.webp
+ *
+ * The layer is fixed and behind everything: a negative z-index child paints above
+ * its parent's background but below all content, so cards and text are untouched.
+ * @supports keeps it from degrading into a flat tint where masks are unavailable.
+ */
+@supports (mask-image: url('#a')) or (-webkit-mask-image: url('#a')) {
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: var(--color-court-700);
+    opacity: 0.06;
+    -webkit-mask-image: url('./assets/doodles.webp');
+    mask-image: url('./assets/doodles.webp');
+    -webkit-mask-size: 620px 620px;
+    mask-size: 620px 620px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body::before {
+      background-color: var(--color-court-400);
+      opacity: 0.09;
+    }
+  }
+}
+
+/*
  * Tailwind's preflight sets `button { cursor: default }`, so on a desktop nothing
  * in the app reads as clickable. Restore the pointer for everything interactive,
  * and show the not-allowed cursor when an action is genuinely unavailable.
@@ -128,6 +184,11 @@ textarea {
     background: #fff;
     color: #000;
     font-size: 11pt;
+  }
+
+  /* The wallpaper is atmosphere, not information, and it is pure ink on paper. */
+  body::before {
+    display: none;
   }
 
   main {
