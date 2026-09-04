@@ -73,8 +73,58 @@ export interface LevelView {
  * matches with the same ids, which is what lets results be stored by match id and
  * everything else be recomputed rather than saved.
  */
+/**
+ * The draw order every fixture derives from: the seeded shuffle, unless the manager
+ * has arranged one by hand.
+ *
+ * A manual order is reconciled against the level's current players rather than
+ * trusted outright: ids that have since been removed drop out, and anyone added
+ * afterwards is appended in their seeded position. That keeps a hand-made draw valid
+ * across roster edits instead of forcing a redraw whenever a latecomer arrives.
+ */
+export function levelDrawOrder(level: Level): PlayerId[] {
+  const seeded = drawOrder(level.playerIds, rngFromSeed(level.seed))
+  if (!level.manualOrder || level.manualOrder.length === 0) return seeded
+
+  const inLevel = new Set(level.playerIds)
+  const kept = level.manualOrder.filter((id) => inLevel.has(id))
+  const placed = new Set(kept)
+  return [...kept, ...seeded.filter((id) => !placed.has(id))]
+}
+
+/** Where each player in the draw order lands, for the manual draw editor. */
+export interface DrawPlacement {
+  playerId: PlayerId
+  position: number
+  /** Set for formats with a group stage. */
+  groupId?: GroupId
+  /** First-round bracket match, for the knockout-only formats. */
+  matchId?: MatchId
+}
+
+export function drawPlacements(level: Level): DrawPlacement[] {
+  const { groups, matches } = buildFixtures(level)
+  const groupOf = new Map<PlayerId, GroupId>()
+  for (const group of groups) for (const id of group.playerIds) groupOf.set(id, group.id)
+
+  const matchOf = new Map<PlayerId, MatchId>()
+  for (const match of matches) {
+    if (match.stage === 'group' || match.round !== 0) continue
+    for (const slot of [match.a, match.b]) {
+      if (slot.kind === 'player') matchOf.set(slot.playerId, match.id)
+    }
+  }
+
+  return levelDrawOrder(level).map((playerId, position) => ({
+    playerId,
+    position,
+    groupId: groupOf.get(playerId),
+    matchId: matchOf.get(playerId),
+  }))
+}
+
 export function buildFixtures(level: Level): { groups: Group[]; matches: Match[] } {
-  const ordered = drawOrder(level.playerIds, rngFromSeed(level.seed))
+  const ordered = levelDrawOrder(level)
   const config = level.config
 
   switch (config.format) {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../store/useAppStore'
 import { Button, Chip, inputClass } from '../common/ui'
+import { Tooltip } from '../common/Tooltip'
 import type { PlayerId } from '../../engine/types'
 
 /**
@@ -94,16 +95,12 @@ export function PlayerPicker({
           {available.map((player) => {
             const on = chosen.has(player.id)
             return (
-              <Chip
-                key={player.id}
-                selected={on}
-                onClick={() => toggle(player.id)}
-                title={on ? t('roster.tapToRemove') : t('roster.tapToAdd')}
-                className="!rounded-full"
-              >
-                {on ? '✓ ' : ''}
-                {player.name}
-              </Chip>
+              <Tooltip key={player.id} label={on ? t('roster.tapToRemove') : t('roster.tapToAdd')}>
+                <Chip selected={on} onClick={() => toggle(player.id)} className="!rounded-full">
+                  {on ? '✓ ' : ''}
+                  {player.name}
+                </Chip>
+              </Tooltip>
             )
           })}
         </div>

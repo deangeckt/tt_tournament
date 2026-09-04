@@ -29,6 +29,8 @@ interface AppState {
 
   addRosterPlayer: (name: string) => Promise<Player | undefined>
   removeRosterPlayer: (id: string) => Promise<void>
+  /** Rename a saved player, or attach/remove their photo. */
+  patchRosterPlayer: (id: PlayerId, patch: Partial<Omit<Player, 'id'>>) => Promise<void>
 
   setResult: (matchId: MatchId, result: MatchResult, playedBy: [PlayerId, PlayerId]) => Promise<void>
   clearResult: (matchId: MatchId) => Promise<void>
@@ -39,6 +41,10 @@ interface AppState {
   patchLevel: (levelId: LevelId, patch: Partial<Level>) => Promise<void>
   /** Re-run the draw for a level under a fresh seed. */
   redrawLevel: (levelId: LevelId) => Promise<void>
+  /** Replace the seeded draw order with one the manager arranged by hand. */
+  setDrawOrder: (levelId: LevelId, order: PlayerId[]) => Promise<void>
+  /** Hand the draw back to the seed. */
+  clearDrawOrder: (levelId: LevelId) => Promise<void>
   /** Mark a player as withdrawn, or bring them back. */
   toggleWithdrawn: (levelId: LevelId, playerId: PlayerId) => Promise<void>
 }
@@ -84,6 +90,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async removeRosterPlayer(id) {
     await deleteRosterPlayer(id)
+    set({ roster: await listRoster() })
+  },
+
+  async patchRosterPlayer(id, patch) {
+    const player = get().roster.find((p) => p.id === id)
+    if (!player) return
+    await putRosterPlayer({ ...player, ...patch })
     set({ roster: await listRoster() })
   },
 
@@ -138,10 +151,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().saveTournament({
       ...current,
       results,
+      // A fresh seed with a hand-made order still on it would change nothing, so
+      // "draw again" also means "forget my arrangement".
       levels: current.levels.map((l) =>
-        l.id === levelId ? { ...l, seed: generateSeed() } : l,
+        l.id === levelId ? { ...l, seed: generateSeed(), manualOrder: undefined } : l,
       ),
     })
+  },
+
+  async setDrawOrder(levelId, order) {
+    await get().patchLevel(levelId, { manualOrder: order })
+  },
+
+  async clearDrawOrder(levelId) {
+    await get().patchLevel(levelId, { manualOrder: undefined })
   },
 
   async toggleWithdrawn(levelId, playerId) {

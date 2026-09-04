@@ -1,14 +1,30 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { localeDir, type Locale } from '../../i18n'
+
+/** Whether the app is currently laid out right-to-left. */
+function useRtl(): boolean {
+  const { i18n } = useTranslation()
+  return localeDir(i18n.language as Locale) === 'rtl'
+}
 
 /**
- * Scores, seeds and any digit pair must render left-to-right even inside Hebrew
- * text. Without isolation the bidi algorithm can reorder "11-9" into "9-11", which
- * looks exactly like a wrong score rather than a layout bug.
+ * A score pair, always attached to the right player.
+ *
+ * `a` belongs to the player named first — the one at the *start* of the row, which
+ * in Hebrew is the player on the right. The digits themselves are bidi-isolated so
+ * "11–9" is never reordered into "9–11", but isolation alone is not enough: a pair
+ * printed a-then-b puts A's number on the left while A's name sits on the right,
+ * which reads as the score being given to the wrong player. So in RTL the pair is
+ * emitted in visual order too, and the number nearest a name is always that
+ * player's.
  */
 export function Score({ a, b, className = '' }: { a: number; b: number; className?: string }) {
+  const rtl = useRtl()
+  const [left, right] = rtl ? [b, a] : [a, b]
   return (
     <span dir="ltr" className={`num tabular-nums ${className}`} style={{ unicodeBidi: 'isolate' }}>
-      {a}–{b}
+      {left}–{right}
     </span>
   )
 }
@@ -104,5 +120,58 @@ export function Chip({
             : 'bg-white text-court-700 ring-1 ring-court-200 hover:ring-court-400 hover:bg-court-50 dark:bg-court-900 dark:text-court-100 dark:ring-court-700 dark:hover:bg-court-800'
         } ${className}`}
     />
+  )
+}
+
+/** First letters of up to two words — the fallback when a player has no photo. */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => [...word][0] ?? '')
+    .join('')
+}
+
+const AVATAR_SIZES = {
+  sm: 'h-9 w-9 text-sm',
+  md: 'h-12 w-12 text-base',
+  lg: 'h-24 w-24 text-2xl',
+} as const
+
+export function Avatar({
+  name,
+  photo,
+  size = 'sm',
+  className = '',
+}: {
+  name: string
+  photo?: string
+  size?: keyof typeof AVATAR_SIZES
+  className?: string
+}) {
+  const shared = `shrink-0 overflow-hidden rounded-full object-cover ${AVATAR_SIZES[size]} ${className}`
+  if (photo) {
+    // Decorative: the player's name is always rendered next to it.
+    return <img src={photo} alt="" className={shared} />
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex items-center justify-center bg-court-100 font-bold text-court-600
+        dark:bg-court-800 dark:text-court-200 ${shared}`}
+    >
+      {initials(name)}
+    </span>
+  )
+}
+
+/** One number with its label — used for player records and tournament summaries. */
+export function Stat({ label, value }: { label: ReactNode; value: ReactNode }) {
+  return (
+    <div className="rounded-xl bg-court-100/70 px-3 py-2.5 text-center dark:bg-court-800/60">
+      <div className="text-xl font-bold tabular-nums">{value}</div>
+      <div className="text-xs text-court-600 dark:text-court-200">{label}</div>
+    </div>
   )
 }

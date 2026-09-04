@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BestOf, Level, PlayerId, ScoreMode, Tournament } from '../../engine/types'
 import { useAppStore } from '../../store/useAppStore'
-import { Button, Chip, Field, Ltr, inputClass } from '../common/ui'
+import { Button, Chip, Field, inputClass } from '../common/ui'
 import { Sheet } from '../common/Sheet'
 import { Tooltip } from '../common/Tooltip'
 import { toast } from '../../store/useToasts'
+import { DrawEditor } from './DrawEditor'
 
 /**
  * Edit a tournament while it is running.
@@ -39,6 +40,7 @@ export function EditSheet({
 
   const [newName, setNewName] = useState('')
   const [confirmRedraw, setConfirmRedraw] = useState(false)
+  const [manualDraw, setManualDraw] = useState(false)
 
   const nameOf = (id: PlayerId) =>
     tournament.players.find((p) => p.id === id)?.name ?? id
@@ -51,11 +53,12 @@ export function EditSheet({
   )
 
   const addPlayer = async (id: PlayerId, name: string) => {
-    const player = roster.find((p) => p.id === id)
     await patchTournament({
+      // Name only — the roster keeps the photo, and a tournament that carries one
+      // would no longer fit in a share link.
       players: tournament.players.some((p) => p.id === id)
         ? tournament.players
-        : [...tournament.players, player ?? { id, name }],
+        : [...tournament.players, { id, name }],
     })
     await patchLevel(level.id, { playerIds: [...level.playerIds, id] })
     toast(t('edit.playerAdded', { name }))
@@ -228,11 +231,40 @@ export function EditSheet({
           ) : null}
         </div>
 
-        <div className="border-t border-court-100 pt-4 dark:border-court-800">
-          <div className="mb-2 flex items-center gap-2 text-sm text-court-600 dark:text-court-200">
-            <span>{t('run.seedLabel')}:</span>
-            <Ltr>{level.seed}</Ltr>
+        {/* The draw itself: reshuffle it, or take it apart by hand. The seed lives
+            on the tournament page, where everyone can read it off the screen. */}
+        <div className="space-y-3 border-t border-court-100 pt-4 dark:border-court-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-court-700 dark:text-court-200">
+              {t('draw.section')}
+            </span>
+            {level.manualOrder ? (
+              <span className="rounded-lg bg-ball-500/15 px-2 py-1 text-xs font-medium text-ball-600">
+                {t('draw.manualBadge')}
+              </span>
+            ) : null}
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Tooltip label={t('draw.manualHint')}>
+              <Button
+                variant={manualDraw ? 'primary' : 'subtle'}
+                size="sm"
+                aria-pressed={manualDraw}
+                onClick={() => setManualDraw(!manualDraw)}
+              >
+                ✋ {t('draw.manual')}
+              </Button>
+            </Tooltip>
+            {confirmRedraw ? null : (
+              <Tooltip label={t('edit.redrawHint')}>
+                <Button variant="subtle" size="sm" onClick={() => setConfirmRedraw(true)}>
+                  🎲 {t('edit.redraw')}
+                </Button>
+              </Tooltip>
+            )}
+          </div>
+
           {confirmRedraw ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-ball-600">
@@ -254,13 +286,11 @@ export function EditSheet({
                 {t('edit.redraw')}
               </Button>
             </div>
-          ) : (
-            <Tooltip label={t('edit.redrawHint')}>
-              <Button variant="subtle" size="sm" onClick={() => setConfirmRedraw(true)}>
-                🎲 {t('edit.redraw')}
-              </Button>
-            </Tooltip>
-          )}
+          ) : null}
+
+          {manualDraw ? (
+            <DrawEditor tournament={tournament} level={level} playedCount={playedCount} />
+          ) : null}
         </div>
 
         <Button className="w-full" onClick={onClose}>

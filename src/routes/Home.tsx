@@ -32,7 +32,6 @@ export function Home() {
             <li key={tournament.id}>
               <button
                 onClick={() => navigate({ name: 'run', id: tournament.id })}
-                title={t('home.resume')}
                 className="w-full rounded-2xl bg-white p-5 text-start ring-1 ring-court-100 transition-all
                   duration-150 hover:-translate-y-px hover:bg-court-50 hover:shadow-md hover:ring-court-400
                   active:scale-[0.99] dark:bg-court-900 dark:ring-court-800 dark:hover:bg-court-800"

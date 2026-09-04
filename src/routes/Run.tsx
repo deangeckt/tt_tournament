@@ -7,9 +7,10 @@ import type { MatchId, MatchResult, PlayerId, StoredResult } from '../engine/typ
 import { Button, Card, Chip, Ltr, PageTitle } from '../components/common/ui'
 import { GroupTable } from '../components/group/GroupTable'
 import { MatchCard } from '../components/match/MatchCard'
-import { participantLabel } from '../components/match/labels'
+import { participantLabel, roundLabel } from '../components/match/labels'
 import { ScoreSheet } from '../components/score/ScoreSheet'
 import { EditSheet } from '../components/tournament/EditSheet'
+import { ShareSheet } from '../components/tournament/ShareSheet'
 import { Tooltip } from '../components/common/Tooltip'
 import { toast } from '../store/useToasts'
 import { navigate } from '../router'
@@ -24,6 +25,7 @@ export function Run({ id }: { id: string }) {
   const [activeLevel, setActiveLevel] = useState(0)
   const [editing, setEditing] = useState<MatchView | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   /** The match whose score changed most recently, and when — drives the highlight. */
   const [lastChange, setLastChange] = useState<{ id: MatchId; at: number } | null>(null)
 
@@ -48,6 +50,9 @@ export function Run({ id }: { id: string }) {
   const ready = view.matches.filter((m) => m.playable && !m.result)
   const advancing = level.config.format === 'groupsKnockout' ? level.config.advancePerGroup : 0
   const bracket = view.matches.filter((m) => m.match.stage !== 'group')
+  // Rounds are named backwards from the last one, so the final is "the final"
+  // whether the bracket started with 32 players or four.
+  const lastBracketRound = bracket.reduce((max, m) => Math.max(max, m.match.round), 0)
   const progress = view.total > 0 ? Math.round((view.played / view.total) * 100) : 0
 
   /** Restore a previous result, or clear the match if there wasn't one. */
@@ -99,6 +104,11 @@ export function Run({ id }: { id: string }) {
           ← {t('nav.back')}
         </Button>
         <div className="flex-1" />
+        <Tooltip label={t('share.openHint')}>
+          <Button variant="subtle" size="sm" onClick={() => setShareOpen(true)}>
+            ↗ {t('share.open')}
+          </Button>
+        </Tooltip>
         <Tooltip label={t('edit.openHint')}>
           <Button variant="subtle" size="sm" onClick={() => setEditOpen(true)}>
             ✎ {t('edit.open')}
@@ -188,7 +198,7 @@ export function Run({ id }: { id: string }) {
               .map((round) => (
                 <div key={round}>
                   <div className="mb-1.5 text-sm font-medium text-court-500 dark:text-court-300">
-                    <Ltr>{round + 1}</Ltr>
+                    {roundLabel(round, lastBracketRound, t)}
                   </div>
                   <div className="space-y-1.5">
                     {bracket
@@ -203,12 +213,19 @@ export function Run({ id }: { id: string }) {
         </section>
       ) : null}
 
+      {/* The draw code belongs in front of the room, not behind an Edit button:
+          it is the thing a player asks about when they doubt the draw. */}
       <Card className="no-print text-court-600 dark:text-court-200">
-        <div className="font-medium">{t('run.seedLabel')}</div>
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true">🎲</span>
+          <span className="font-medium">{t('run.seedLabel')}</span>
+        </div>
         <div className="mt-1 text-xl font-bold text-court-900 dark:text-court-50">
           <Ltr>{level.seed}</Ltr>
         </div>
-        <p className="mt-1 text-sm">{t('run.seedHint')}</p>
+        <p className="mt-1 text-sm">
+          {level.manualOrder ? t('run.seedManual') : t('run.seedHint')}
+        </p>
       </Card>
 
       <ScoreSheet
@@ -231,6 +248,8 @@ export function Run({ id }: { id: string }) {
         level={level}
         playedCount={view.played}
       />
+
+      <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} tournament={current} />
     </>
   )
 }

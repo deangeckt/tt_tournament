@@ -117,3 +117,28 @@ textarea {
     display: none !important;
   }
 }
+
+/*
+ * Printing is the offline share: a sheet to pin on the wall, or a PDF the browser
+ * makes from the same page. Interactive chrome comes off, and the ink-heavy
+ * backgrounds go with it.
+ */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Cards and tables are outlined rather than filled, and never split down the
+     middle by a page break. */
+  table,
+  section {
+    break-inside: avoid;
+  }
+}

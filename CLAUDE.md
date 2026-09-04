@@ -56,15 +56,24 @@ invisible until it produces a wrong ranking in front of a room full of players.
 
 ### The decision everything else follows from
 
-**A level stores only `{ playerIds, config, seed }` plus a flat `Record<MatchId, StoredResult>`.**
-The draw, group assignments, bracket shape, who advanced and every standings table are
-recomputed by pure functions in `src/engine/resolve.ts`. Nothing structural is saved.
+**A level stores only `{ playerIds, config, seed, manualOrder? }` plus a flat
+`Record<MatchId, StoredResult>`.** The draw, group assignments, bracket shape, who
+advanced and every standings table are recomputed by pure functions in
+`src/engine/resolve.ts`. Nothing structural is saved.
 
 This is why editing an early score is safe: change one map entry and the whole
-downstream tree re-derives. It is also why a share link will not need to carry the
-bracket, and why a stored seed lets anyone replay the draw and verify it wasn't rigged.
+downstream tree re-derives. It is also why a share link carries no bracket, and why a
+stored seed lets anyone replay the draw and verify it wasn't rigged.
 
-Before adding state, ask whether it can be derived instead. It usually can.
+`manualOrder` is the one addition, and it obeys the same rule: it replaces the *draw
+order*, the single list every fixture already derives from, so a hand-made draw needs
+no second code path. `levelDrawOrder` reconciles it against the current players —
+departed ids drop out, latecomers fall in at their seeded position — so it survives
+roster edits rather than forcing a redraw.
+
+Before adding state, ask whether it can be derived instead. It usually can. Career
+records (`src/engine/stats.ts`) are derived the same way, from the tournaments
+themselves, so correcting a score from three months ago corrects the record it made.
 
 ### The one thing derivation does not solve
 
@@ -78,6 +87,10 @@ standings** and surfaced to the user, never silently reassigned.
 `swapped` (same two players, sides reversed) is kept distinct from `mismatched` because
 it is the common case after a group correction reorders qualifiers, and the right fix
 there is to flip the score rather than discard it.
+
+This machinery is also what makes hand-editing a draw mid-tournament safe: match ids
+are derived from level/stage/round/order, so rearranging players keeps every id and
+simply leaves the affected results flagged instead of silently reattributed.
 
 ### One match type, four formats
 
@@ -97,7 +110,21 @@ derived from level/stage/round/order, never from array position at render time.
 
 `src/engine/` is pure TypeScript: **no React, no DOM, no user-facing strings**. It
 returns machine-readable codes (`TiebreakReason`, `ConfigProblem`) and the UI maps them
-to i18n keys. Nearly all tests live here; that is intentional.
+to i18n keys. Nearly all tests live here; that is intentional. `drawPlacements` returns
+group and match *ids* rather than labels for exactly this reason.
+
+### Getting data out
+
+There is no backend, so leaving the device is a first-class feature with two shapes:
+
+- **`src/share/payload.ts`** — one tournament, lz-compressed into a URL fragment
+  (`#/v/<payload>`), decoded by the read-only `ViewShared` route. Because everything is
+  derived, the payload is only source state; a played-out 24-player night is well under
+  2KB. Photos are stripped on the way out (`slimForSharing`), which is also why a
+  `Tournament` stores slim `{id,name}` player copies while the roster keeps the photo.
+- **`src/store/backup.ts`** — everything, as one JSON file, exported/imported/shared
+  from the settings screen. Import is keyed by id and merges by default, so re-importing
+  a file you already have is a no-op rather than a pile of duplicates.
 
 ### The tiebreak chain
 
@@ -129,6 +156,14 @@ RTL is a single `dir` attribute rather than a stylesheet fork.
 an RTL paragraph — which reads as a wrong score, not a layout bug. This is the highest-
 risk visual bug in the app.
 
+Isolation alone is not enough, though. `<Score a b>` takes `a` as the *first-named*
+player — the one at the start of the row, which in Hebrew is the one on the **right** —
+and in RTL emits the pair in visual order, so the number nearest a name is always that
+player's. Printed `a`-then-`b` regardless of direction, A's score sits next to B's name
+and every result looks reversed. Same reason the quick-entry buttons name their winner
+and the walkover buttons dropped their arrows: nothing about who won should have to be
+inferred from which side a glyph landed on.
+
 **i18n.** `src/i18n/en.ts` is the type source; `he.ts` is typed as `Resources`, so a
 missing or misspelled key is a **compile error**. Hebrew needs `_one/_two/_other`
 plural suffixes, so English carries a `_two` variant it never selects, purely to keep
@@ -150,6 +185,12 @@ changed prop.
 `min-h-11` for this reason; don't drop it. Tooltips are hover-only, so never put
 information that is *required* to use a control in a tooltip alone.
 
+**Tooltips.** Use `<Tooltip>`, never the native `title` attribute, and never both. With
+both, the same control shows a styled bubble, the browser's black box a second later,
+or one and not the other depending on how long the pointer rested — three controls as
+far as the user is concerned. `Tooltip` keeps the label in the accessibility tree via a
+visually hidden `aria-describedby` node, so dropping `title` costs nothing.
+
 **Editing.** Because the engine re-derives from source, almost everything is safe to
 change mid-tournament. Only two operations are guarded: re-drawing (discards that
 level's results) and removing a player who has already played (offer withdrawal
@@ -158,9 +199,11 @@ instead).
 ## Status
 
 Working: the engine, the setup wizard with the illustrated format picker and duration
-advice, saved roster, seeded draw, quick/detailed score entry, live ITTF standings,
-round robin, single elimination, groups→knockout, multiple levels, in-tournament
-editing, withdrawals, Hebrew/English RTL.
+advice, saved roster, seeded draw, hand-editable draw, quick/detailed score entry, live
+ITTF standings, round robin, single elimination, groups→knockout, multiple levels,
+in-tournament editing, withdrawals, Hebrew/English RTL, player profiles (photo, career
+record, tournament history), share links + QR + print/PDF, and JSON export/import from
+the settings screen.
 
 Not built yet:
 
@@ -169,10 +212,8 @@ Not built yet:
   losers-bracket drop mapping is genuinely intricate and deserves property tests
   (assert: no two players meet twice before the grand final; every non-champion has
   exactly two losses) rather than a hand-checked implementation.
-- Share links + QR (`#/v/<payload>`), table assignment queue, print/PDF, player history
-  across tournaments.
-- **Export/backup.** This is the real cost of having no backend: if browser storage is
-  cleared, everything is gone. Worth doing before anyone runs a real tournament on it.
+- Table assignment queue. `Tournament.tableAssignments` exists and is still unused.
+- Head-to-head is computed (`engine/stats.ts`) but nothing shows it yet.
 
 ## Gotchas
 

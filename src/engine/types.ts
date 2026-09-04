@@ -21,6 +21,12 @@ export type ScoreMode = 'quick' | 'detailed'
 export interface Player {
   id: PlayerId
   name: string
+  /**
+   * A small, already-downscaled data URL. Kept on the roster record only — a
+   * tournament stores slim {id,name} copies, so a share payload never carries
+   * photos and stays inside a URL.
+   */
+  photo?: string
 }
 
 /** Points in a single game, e.g. { a: 11, b: 9 }. */
@@ -112,6 +118,15 @@ export interface Level {
   bestOf: BestOf
   /** Reproduces the draw exactly. Storing it makes the draw replayable and provable. */
   seed: string
+  /**
+   * A manager's hand-made draw order, overriding the seeded shuffle.
+   *
+   * Still just *source* state: it replaces the one input the fixtures derive from,
+   * so groups, bracket and standings recompute exactly as before. Ids not in the
+   * level any more are ignored and late entrants fall in at their seeded position,
+   * so this survives roster edits without needing a redraw.
+   */
+  manualOrder?: PlayerId[]
   /** Players who withdrew after the draw; their remaining matches become walkovers. */
   withdrawn: PlayerId[]
 }

@@ -38,7 +38,6 @@ export function MatchCard({
       type="button"
       disabled={!view.playable}
       onClick={() => onOpen(view)}
-      title={view.playable ? `${labelA} – ${labelB}` : undefined}
       className={`relative w-full overflow-hidden rounded-xl px-4 py-3.5 text-start transition-all duration-150
         ${
           view.playable

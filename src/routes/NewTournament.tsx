@@ -64,7 +64,9 @@ export function NewTournament() {
       date,
       scoreMode,
       tableCount,
-      players: roster.filter((p) => usedIds.has(p.id)),
+      // Slim copies: a tournament needs a name to print, not a roster photo. Keeping
+      // photos out here is what lets the whole thing fit in a share link.
+      players: roster.filter((p) => usedIds.has(p.id)).map(({ id, name }) => ({ id, name })),
       levels: levels.map<Level>((level) => ({
         id: level.key,
         name: level.name,
@@ -156,14 +158,14 @@ export function NewTournament() {
       {step > 0 ? (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {levels.map((level, i) => (
-            <Chip
+            <Tooltip
               key={level.key}
-              selected={i === activeLevel}
-              onClick={() => setActiveLevel(i)}
-              title={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
+              label={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
             >
-              {level.name} · {level.playerIds.length}
-            </Chip>
+              <Chip selected={i === activeLevel} onClick={() => setActiveLevel(i)}>
+                {level.name} · {level.playerIds.length}
+              </Chip>
+            </Tooltip>
           ))}
           <Tooltip label={t('wizard.addLevelHint')}>
             <Button
@@ -215,16 +217,27 @@ export function NewTournament() {
 
       {step === 2 && current ? (
         <>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {([3, 5, 7] as const).map((value) => (
-              <Chip
-                key={value}
-                selected={current.bestOf === value}
-                onClick={() => patchLevel(activeLevel, { bestOf: value })}
-              >
-                {t('wizard.bestOfValue', { count: value })}
-              </Chip>
-            ))}
+          {/* Match length sits with the format because it is the other half of the
+              same decision — best of 3 across 24 players is a different evening from
+              best of 5 — and the duration advice below reacts to it. */}
+          <div className="mb-4">
+            <span className="mb-2 block font-medium text-court-700 dark:text-court-200">
+              {t('wizard.bestOf')}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {([3, 5, 7] as const).map((value) => (
+                <Chip
+                  key={value}
+                  selected={current.bestOf === value}
+                  onClick={() => patchLevel(activeLevel, { bestOf: value })}
+                >
+                  {t('wizard.bestOfValue', { count: value })}
+                </Chip>
+              ))}
+            </div>
+            <p className="mt-1.5 text-sm text-court-500 dark:text-court-300">
+              {t('wizard.bestOfHint')}
+            </p>
           </div>
           <FormatPicker
             value={current.config}

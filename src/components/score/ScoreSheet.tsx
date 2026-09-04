@@ -4,6 +4,7 @@ import type { BestOf, GameScore, MatchResult, ScoreMode } from '../../engine/typ
 import { gamesToWin, validateGame } from '../../engine/result'
 import { Button, Score } from '../common/ui'
 import { Sheet } from '../common/Sheet'
+import { Tooltip } from '../common/Tooltip'
 
 interface Props {
   open: boolean
@@ -59,28 +60,36 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
       </div>
 
       {scoreMode === 'quick' ? (
+        /* Each column sits under the player it belongs to — the first column under
+           the first-named player, which in Hebrew is the one on the right — and
+           carries their name, so which side a tap awards is never inferred from the
+           position of a digit. */
         <div className="space-y-2">
           {scorelines(bestOf).map(([win, lose]) => (
             <div key={lose} className="grid grid-cols-2 gap-2">
-              <Button
-                variant="subtle"
-                className="text-lg"
+              <WinButton
+                name={nameA}
+                a={win}
+                b={lose}
                 onClick={() => onSave({ kind: 'quick', a: win, b: lose })}
-              >
-                <Score a={win} b={lose} />
-              </Button>
-              <Button
-                variant="subtle"
-                className="text-lg"
+              />
+              <WinButton
+                name={nameB}
+                a={lose}
+                b={win}
                 onClick={() => onSave({ kind: 'quick', a: lose, b: win })}
-              >
-                <Score a={lose} b={win} />
-              </Button>
+              />
             </div>
           ))}
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-court-500 dark:text-court-300">
+            <span className="w-6 shrink-0" />
+            <span className="w-full truncate text-center">{nameA}</span>
+            <span className="w-full truncate text-center">{nameB}</span>
+            <span className="w-4 shrink-0" />
+          </div>
           {games.map((game, i) => {
             const problem = validateGame(game)
             return (
@@ -90,6 +99,7 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
                   type="number"
                   inputMode="numeric"
                   min={0}
+                  aria-label={`${nameA} — ${i + 1}`}
                   value={game.a || ''}
                   onChange={(e) => setGame(i, { a: Number(e.target.value) || 0 })}
                   className="w-full rounded-xl bg-court-100 px-3 py-3 text-center text-xl tabular-nums focus:ring-2 focus:ring-court-500 focus:outline-none dark:bg-court-800"
@@ -98,15 +108,23 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
                   type="number"
                   inputMode="numeric"
                   min={0}
+                  aria-label={`${nameB} — ${i + 1}`}
                   value={game.b || ''}
                   onChange={(e) => setGame(i, { b: Number(e.target.value) || 0 })}
                   className="w-full rounded-xl bg-court-100 px-3 py-3 text-center text-xl tabular-nums focus:ring-2 focus:ring-court-500 focus:outline-none dark:bg-court-800"
                 />
-                <span
-                  className={`w-4 shrink-0 text-sm ${problem ? 'text-ball-600' : 'text-transparent'}`}
-                  title={problem ?? ''}
-                >
-                  !
+                <span className="w-4 shrink-0 text-sm">
+                  {problem ? (
+                    <Tooltip
+                      label={
+                        problem === 'incomplete'
+                          ? t('score.gameIncomplete')
+                          : t('score.gameMargin')
+                      }
+                    >
+                      <span className="text-ball-600">!</span>
+                    </Tooltip>
+                  ) : null}
                 </span>
               </div>
             )
@@ -131,22 +149,22 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
         </div>
       )}
 
+      {/* Walkovers name their winner too, for the same reason: an arrow pointing
+          "that way" means the opposite thing in the two languages this app runs in. */}
       <div className="mt-5 flex flex-wrap gap-2 border-t border-court-100 pt-4 dark:border-court-800">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onSave({ kind: 'walkover', winner: 'a' })}
-          title={`${t('match.walkover')}: ${nameA}`}
         >
-          {t('match.walkover')} ←
+          {t('score.walkoverFor', { name: nameA })}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onSave({ kind: 'walkover', winner: 'b' })}
-          title={`${t('match.walkover')}: ${nameB}`}
         >
-          → {t('match.walkover')}
+          {t('score.walkoverFor', { name: nameB })}
         </Button>
         <div className="flex-1" />
         {existing ? (
@@ -159,5 +177,28 @@ function SheetBody({ nameA, nameB, bestOf, scoreMode, existing, onSave, onClear,
         </Button>
       </div>
     </>
+  )
+}
+
+/** One tap that records a finished match, labelled with who it hands the win to. */
+function WinButton({
+  name,
+  a,
+  b,
+  onClick,
+}: {
+  name: string
+  a: number
+  b: number
+  onClick: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Button variant="subtle" className="flex-col gap-0.5 py-2.5" onClick={onClick}>
+      <Score a={a} b={b} className="text-xl font-bold" />
+      <span className="max-w-full truncate text-xs font-normal text-court-600 dark:text-court-200">
+        {t('score.winsBy', { name })}
+      </span>
+    </Button>
   )
 }

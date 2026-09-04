@@ -71,3 +71,9 @@ export async function requestPersistence(): Promise<boolean> {
     return false
   }
 }
+
+/** Wipe both stores. Only reachable from an explicit "replace everything" import. */
+export async function clearAllData(): Promise<void> {
+  const database = await db()
+  await Promise.all([database.clear('tournaments'), database.clear('roster')])
+}
