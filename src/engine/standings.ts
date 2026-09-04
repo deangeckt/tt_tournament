@@ -248,7 +248,10 @@ export function computeStandings(input: StandingsInput): StandingRow[] {
       pointsFor: agg.pointsFor,
       pointsAgainst: agg.pointsAgainst,
       rank: index + 1,
-      tiebreakReason: entry.reason,
+      // A player who has not played cannot have been separated from anyone. Without
+      // this, every row in an untouched group is annotated "decided by lot", which is
+      // technically true of the ordering and completely misleading to read.
+      tiebreakReason: agg.played > 0 ? entry.reason : undefined,
     }
   })
 }

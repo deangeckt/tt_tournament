@@ -21,11 +21,15 @@ export function readStoredLocale(): Locale | null {
   }
 }
 
-/** Hebrew-first: only an explicit English preference or an English browser wins. */
+/**
+ * Hebrew unless the user has explicitly switched to English.
+ *
+ * Deliberately not derived from navigator.language: this is a Hebrew app for Israeli
+ * clubs, and plenty of people there run their browser in English. Guessing from the
+ * browser would show them the wrong language by default.
+ */
 export function detectLocale(): Locale {
-  const stored = readStoredLocale()
-  if (stored) return stored
-  return navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'he'
+  return readStoredLocale() ?? 'he'
 }
 
 export function applyLocale(locale: Locale): void {

@@ -123,7 +123,7 @@ export function NewTournament() {
                   className={`rounded-xl p-3 text-start transition ${
                     scoreMode === mode
                       ? 'bg-court-600/10 ring-2 ring-court-500'
-                      : 'bg-court-100 ring-1 ring-transparent dark:bg-court-800'
+                      : 'bg-white ring-1 ring-court-200 hover:ring-court-300 dark:bg-court-900 dark:ring-court-700'
                   }`}
                 >
                   <div className="font-medium">
@@ -198,6 +198,15 @@ export function NewTournament() {
             selected={current.playerIds}
             taken={takenBy(activeLevel)}
             onChange={(ids) => patchLevel(activeLevel, { playerIds: ids })}
+            onAdd={(id) =>
+              setLevels((prev) =>
+                prev.map((level, i) =>
+                  i === activeLevel && !level.playerIds.includes(id)
+                    ? { ...level, playerIds: [...level.playerIds, id] }
+                    : level,
+                ),
+              )
+            }
           />
         </Card>
       ) : null}
@@ -225,6 +234,7 @@ export function NewTournament() {
             value={current.config}
             playerCount={current.playerIds.length}
             bestOf={current.bestOf}
+            tableCount={tableCount}
             recommended={recommended}
             onChange={(config) => patchLevel(activeLevel, { config })}
           />

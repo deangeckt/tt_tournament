@@ -21,12 +21,14 @@ export function FormatPicker({
   value,
   playerCount,
   bestOf,
+  tableCount,
   recommended,
   onChange,
 }: {
   value: FormatConfig
   playerCount: number
   bestOf: BestOf
+  tableCount: number
   recommended: FormatName
   onChange: (config: FormatConfig) => void
 }) {
@@ -37,7 +39,7 @@ export function FormatPicker({
       {ORDER.map((format) => {
         const selected = value.format === format
         const config = selected ? value : defaultConfigFor(format, playerCount)
-        const shape = describe(config, playerCount, bestOf)
+        const shape = describe(config, playerCount, bestOf, tableCount)
         const problem = validateConfig(config, playerCount)
         const hours = shape.estimatedMinutes / 60
 

@@ -14,11 +14,15 @@ export function PlayerPicker({
   selected,
   taken,
   onChange,
+  onAdd,
 }: {
   selected: PlayerId[]
   /** Ids already used by another level — a player belongs to one level only. */
   taken: Set<PlayerId>
   onChange: (ids: PlayerId[]) => void
+  /** Appends one player. Separate from onChange so several fast adds cannot
+   *  overwrite each other through a stale `selected` array. */
+  onAdd: (id: PlayerId) => void
 }) {
   const { t } = useTranslation()
   const roster = useAppStore((s) => s.roster)
@@ -36,9 +40,13 @@ export function PlayerPicker({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    const player = await addRosterPlayer(name)
+    const pending = name.trim()
+    if (!pending) return
+    // Clear before awaiting the write: otherwise a fast typist's next keystrokes
+    // land in a field that still holds the name just submitted.
     setName('')
-    if (player && !chosen.has(player.id)) onChange([...selected, player.id])
+    const player = await addRosterPlayer(pending)
+    if (player) onAdd(player.id)
   }
 
   const available = roster.filter((p) => !taken.has(p.id) || chosen.has(p.id))

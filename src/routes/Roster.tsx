@@ -12,8 +12,11 @@ export function Roster() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    await addRosterPlayer(name)
+    const pending = name.trim()
+    if (!pending) return
+    // Cleared before the await so fast typing cannot append to the previous name.
     setName('')
+    await addRosterPlayer(pending)
   }
 
   return (

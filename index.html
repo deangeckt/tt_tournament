@@ -12,7 +12,7 @@
       // a moment on every load, which reads as a broken layout in Hebrew.
       try {
         var l = localStorage.getItem('tt.locale');
-        if (l !== 'he' && l !== 'en') l = navigator.language && navigator.language.toLowerCase().indexOf('en') === 0 ? 'en' : 'he';
+        if (l !== 'he' && l !== 'en') l = 'he';
         document.documentElement.lang = l;
         document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
       } catch (e) {}

@@ -6,6 +6,11 @@ export interface FormatShape {
   matchCount: number
   /** The fewest matches any entrant is guaranteed — the fairness signal. */
   minMatchesPerPlayer: number
+  /**
+   * Rough wall-clock length, not total table time. Dividing by the number of tables
+   * is what makes the number decision-useful: 28 matches is a ten-hour evening on one
+   * table and a two-and-a-half-hour one on four.
+   */
   estimatedMinutes: number
 }
 
@@ -35,7 +40,12 @@ export function groupSizes(n: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-export function describe(config: FormatConfig, playerCount: number, bestOf: BestOf): FormatShape {
+export function describe(
+  config: FormatConfig,
+  playerCount: number,
+  bestOf: BestOf,
+  tableCount = 1,
+): FormatShape {
   const perMatch = MINUTES[bestOf]
   let matchCount = 0
   let minMatchesPerPlayer = 0
@@ -68,11 +78,14 @@ export function describe(config: FormatConfig, playerCount: number, bestOf: Best
     }
   }
 
+  // A knockout round cannot start before the previous one finishes, so tables never
+  // fully parallelise. Rounding up keeps the estimate honest rather than optimistic.
+  const tables = Math.max(1, tableCount)
   return {
     config,
     matchCount,
     minMatchesPerPlayer,
-    estimatedMinutes: matchCount * perMatch,
+    estimatedMinutes: Math.ceil((matchCount * perMatch) / tables),
   }
 }
 
