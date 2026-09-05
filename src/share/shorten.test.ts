@@ -14,34 +14,38 @@ function longUrl(tag: string) {
 }
 
 describe('shortenUrl', () => {
-  it('returns the first provider’s answer', async () => {
-    const fetchMock = vi.fn(async () => new Response('https://da.gd/abc123\n', { status: 200 }))
+  it('returns the first provider’s answer, upgrading its http link', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ short_url: 'http://spoo.me/abc123' }), { status: 200 }),
+    )
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    expect(await shortenUrl(longUrl('first'))).toBe('https://da.gd/abc123')
+    expect(await shortenUrl(longUrl('first'))).toBe('https://spoo.me/abc123')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('memoises, so the same link is never minted twice', async () => {
-    const fetchMock = vi.fn(async () => new Response('https://da.gd/same', { status: 200 }))
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ short_url: 'https://spoo.me/same' }), { status: 200 }),
+    )
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const url = longUrl('memo')
-    expect(await shortenUrl(url)).toBe('https://da.gd/same')
-    expect(await shortenUrl(url)).toBe('https://da.gd/same')
+    expect(await shortenUrl(url)).toBe('https://spoo.me/same')
+    expect(await shortenUrl(url)).toBe('https://spoo.me/same')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('falls through to the next provider, upgrading its http answer, when one is down', async () => {
+  it('falls through to the next provider when one is down', async () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error('network'))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ short_url: 'http://spoo.me/xyz' }), { status: 200 }),
-      )
+      .mockResolvedValueOnce(new Response('https://clck.ru/xyz\n', { status: 200 }))
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    expect(await shortenUrl(longUrl('fallback'))).toBe('https://spoo.me/xyz')
+    expect(await shortenUrl(longUrl('fallback'))).toBe('https://clck.ru/xyz')
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
@@ -50,7 +54,7 @@ describe('shortenUrl', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
     expect(await shortenUrl(longUrl('offline'))).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('rejects a body that is not a url, instead of copying an error page', async () => {
@@ -72,8 +76,8 @@ describe('shortenUrl', () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('offline'))
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    // clck.ru caps at 4096 and is the third provider, so only two calls go out.
+    // clck.ru caps at 4096 and is the second provider, so only one call goes out.
     expect(await shortenUrl(longUrl('y'.repeat(4200)))).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -124,9 +124,15 @@ The first two never touch a server; the third does, and says so:
   to an outside service. The long url is a **fallback**, not an option — it appears only
   when no shortener answered (with a "try again") or when the tournament is too large to
   shorten, and the note says which of those happened. Providers are tried in order
-  because none promises uptime, and the only selection criterion is a permissive CORS
-  header; that alone rules out is.gd, tinyurl and cleanuri, which work from a server and
-  fail from a page with an unhelpful generic network error.
+  because none promises uptime, and a candidate has to pass two tests. A permissive CORS
+  header rules out is.gd, v.gd, ulvis.net and cleanuri, which work from a server and fail
+  from a page with an unhelpful generic network error. The second test is what the *short*
+  link does, and it is the one that is easy to miss because the API side looks perfect:
+  the link has to 3xx straight to the tournament. da.gd and tinyurl pass on CORS and fail
+  here — da.gd sends anything asking for `text/html` to its own landing page with the long
+  url printed on it to click, and tinyurl's keyless `api-create.php` now mints links that
+  land on a "deprecated" preview page. A link the recipient has to click twice is worse
+  than no short link at all.
 
 ### Getting data back in
 
