@@ -30,27 +30,28 @@ function Header() {
             page, the title is the way home from every screen. Keeping them separate
             is why the emblem carries its own label — it is no longer decoration. */}
         <div className="flex min-w-0 items-center gap-2">
-          <Tooltip label={t('nav.clubHint')} side="bottom">
-            <a
-              href={CLUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t('nav.club')}
-              className="group flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full"
-            >
-              {/* The club emblem is drawn on white paper, so it ships as a disc cut
-                  on its own navy ring (scripts/make-logo.mjs) rather than a square
-                  that would sit in a white box under dark mode. */}
-              <img
-                src={logo}
-                alt=""
-                width={192}
-                height={192}
-                className="h-9 w-9 select-none rounded-full ring-court-400 transition
-                  group-hover:ring-2 sm:h-10 sm:w-10 dark:ring-court-300"
-              />
-            </a>
-          </Tooltip>
+          {/* No tooltip on the emblem: the ring lighting up on hover already says it
+              is a link, and a bubble in the top corner covers the title to repeat
+              what the aria-label carries anyway. */}
+          <a
+            href={CLUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('nav.club')}
+            className="group flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full"
+          >
+            {/* The club emblem is drawn on white paper, so it ships as a disc cut
+                on its own navy ring (scripts/make-logo.mjs) rather than a square
+                that would sit in a white box under dark mode. */}
+            <img
+              src={logo}
+              alt=""
+              width={192}
+              height={192}
+              className="h-9 w-9 select-none rounded-full ring-court-400 transition
+                group-hover:ring-2 sm:h-10 sm:w-10 dark:ring-court-300"
+            />
+          </a>
           {/* The title carries the app's full name at a size that reads as a heading
               rather than a breadcrumb. It shrinks before the controls do. */}
           <a
@@ -96,8 +97,17 @@ function Header() {
 }
 
 export function App() {
+  const { t } = useTranslation()
   const route = useRoute()
   const load = useAppStore((s) => s.load)
+
+  // The tab, and what a search result is titled with. index.html ships a Hebrew title
+  // for the crawler that never runs scripts; this is the one the rest see, and it
+  // follows the language toggle. Keyed on `t`, whose identity changes with the
+  // language — the effect below runs once and must not.
+  useEffect(() => {
+    document.title = t('app.documentTitle')
+  }, [t])
 
   useEffect(() => {
     applyLocale(detectLocale())

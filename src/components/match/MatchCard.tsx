@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { MatchView } from '../../engine/resolve'
-import type { BestOf, Group, PlayerId, ScoreMode } from '../../engine/types'
+import type { BestOf, Group, PlayerId } from '../../engine/types'
 import { tally } from '../../engine/result'
 import { Score } from '../common/ui'
 import { participantLabel } from './labels'
@@ -10,7 +10,6 @@ export function MatchCard({
   nameOf,
   groups,
   bestOf,
-  scoreMode,
   flashKey,
   onOpen,
 }: {
@@ -18,7 +17,6 @@ export function MatchCard({
   nameOf: (id: PlayerId) => string
   groups: readonly Group[]
   bestOf: BestOf
-  scoreMode: ScoreMode
   /**
    * Bumped by the screen that just changed this match's score. Used as a React key
    * so the highlight overlay remounts and replays its CSS animation — the flash is
@@ -66,7 +64,7 @@ export function MatchCard({
         </span>
       </div>
       {stale ? <p className="mt-1.5 text-sm text-ball-600">{t('match.stale')}</p> : null}
-      {scoreMode === 'detailed' && view.result?.kind === 'detailed' ? (
+      {view.result?.kind === 'detailed' ? (
         <p className="mt-1.5 text-sm text-court-500 dark:text-court-300">
           {view.result.games.map((g, i) => (
             <span key={i} className="me-2">

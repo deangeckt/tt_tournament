@@ -1,4 +1,4 @@
-import type { BestOf, Match, MatchId, PlayerId, ScoreMode, StoredResult } from './types'
+import type { BestOf, Match, MatchId, PlayerId, StoredResult } from './types'
 import { tally, type ResultTally } from './result'
 import { rngFromSeed, shuffle } from './rng'
 
@@ -30,6 +30,12 @@ export interface StandingRow {
   rank: number
   /** Set only when this player needed a tiebreak to be separated from another. */
   tiebreakReason?: TiebreakReason
+  /**
+   * The dead heat this player was drawn out of, this player included — set only when
+   * the tie fell to lots. It is what lets the UI name the tied players and find the
+   * matches between them without re-deriving the tiers it took to get here.
+   */
+  tieGroup?: readonly PlayerId[]
 }
 
 export interface StandingsInput {
@@ -37,7 +43,6 @@ export interface StandingsInput {
   matches: readonly Match[]
   results: Readonly<Record<MatchId, StoredResult>>
   bestOf: BestOf
-  scoreMode: ScoreMode
   /** Seeds the deterministic lot, so a drawn tie stays stable across recomputes. */
   seed: string
   /** Players whose results are struck from the table (see ITTF withdrawal rule). */
@@ -50,8 +55,8 @@ interface PlayedMatch {
   t: ResultTally
   /**
    * A quick-entry result: it records games but no points, and — unlike a walkover,
-   * which has no points to record at all — re-entering it in detailed mode would
-   * supply them. That is what makes a lot reached here worth reporting.
+   * which has no points to record at all — entering its game scores would supply
+   * them. That is what makes a lot reached here worth reporting.
    */
   upgradable: boolean
 }
@@ -178,6 +183,7 @@ function tierBy(candidates: readonly PlayerId[], value: (id: PlayerId) => Ratio)
 interface Ranked {
   playerId: PlayerId
   reason?: TiebreakReason
+  tieGroup?: readonly PlayerId[]
 }
 
 /**
@@ -206,8 +212,12 @@ function resolveTier(
 
   // Point ratio is only meaningful when every mutual match carries per-game points.
   // Mixed data would compare a player's real ratio against another's phantom 0-0.
-  const pointsUsable =
-    input.scoreMode === 'detailed' && mini.length > 0 && mini.every((m) => m.t.hasPoints)
+  //
+  // The tournament's entry mode is deliberately not consulted. It says how scores are
+  // *typed in*, not what was recorded, and the tiebreak resolver gives one tie its
+  // points without moving the whole night to detailed entry — a mode check would make
+  // those scores stored and then ignored.
+  const pointsUsable = mini.length > 0 && mini.every((m) => m.t.hasPoints)
 
   const criteria: Array<{ reason: TiebreakReason; value: (id: PlayerId) => Ratio }> = [
     // Head-to-head is not a separate rule: it is match points over mutual matches.
@@ -229,6 +239,7 @@ function resolveTier(
           playerId: r.playerId,
           // An inner tiebreak is the more specific explanation, so it wins.
           reason: r.reason ?? criterion.reason,
+          tieGroup: r.tieGroup,
         })),
       )
     }
@@ -242,11 +253,19 @@ function resolveTier(
   const sorted = candidates.slice().sort()
   const lotSeed = `${input.seed}:lot:${sorted.join(',')}`
   // Separate the two ways a lot is reached. Point ratio is skipped whenever any
-  // mutual match lacks points, but only a quick-entry one can still be given them,
-  // so the actionable reason is reserved for a tie the user could break themselves.
-  const reason: TiebreakReason =
-    !pointsUsable && mini.some((m) => m.upgradable) ? 'lotPointsUnavailable' : 'lot'
-  return shuffle(sorted, rngFromSeed(lotSeed)).map((playerId) => ({ playerId, reason }))
+  // mutual match lacks points, but only a quick-entry one can still be given them, so
+  // the actionable reason is reserved for a tie the user can actually break: every
+  // other mutual match must already carry points. One walkover among the tied players
+  // and no amount of typing will make point ratio run, so offering it would send the
+  // user off to enter scores that change nothing.
+  const upgradableOnly =
+    mini.some((m) => m.upgradable) && mini.every((m) => m.t.hasPoints || m.upgradable)
+  const reason: TiebreakReason = !pointsUsable && upgradableOnly ? 'lotPointsUnavailable' : 'lot'
+  return shuffle(sorted, rngFromSeed(lotSeed)).map((playerId) => ({
+    playerId,
+    reason,
+    tieGroup: sorted,
+  }))
 }
 
 export function computeStandings(input: StandingsInput): StandingRow[] {
@@ -277,6 +296,7 @@ export function computeStandings(input: StandingsInput): StandingRow[] {
       // this, every row in an untouched group is annotated "decided by lot", which is
       // technically true of the ordering and completely misleading to read.
       tiebreakReason: agg.played > 0 ? entry.reason : undefined,
+      tieGroup: agg.played > 0 ? entry.tieGroup : undefined,
     }
   })
 }

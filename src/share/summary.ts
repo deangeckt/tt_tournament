@@ -14,7 +14,7 @@ export function summaryText(tournament: Tournament, t: TFunction): string {
   const lines = [`🏓 ${tournament.name} — ${tournament.date}`]
 
   for (const level of tournament.levels) {
-    const view = resolveLevel(level, tournament.results, tournament.scoreMode)
+    const view = resolveLevel(level, tournament.results)
     if (tournament.levels.length > 1) lines.push('', level.name)
     if (view.champion) lines.push(`🏆 ${nameOf(view.champion)}`)
 

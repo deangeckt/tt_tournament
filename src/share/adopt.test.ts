@@ -105,7 +105,7 @@ describe('adopting a shared tournament', () => {
     expect(levelDrawOrder(level)).toEqual(levelDrawOrder(away.levels[0]).map((id) => rewrite.get(id)))
     // And nothing went stale: every result still belongs to the two people standing
     // at its table, which is what keeps it in the standings.
-    const view = resolveLevel(level, plan.tournament.results, plan.tournament.scoreMode)
+    const view = resolveLevel(level, plan.tournament.results)
     expect(view.stale).toHaveLength(0)
     expect(view.played).toBe(Object.keys(results).length)
   })

@@ -3,6 +3,11 @@ export const en = {
     title: 'Table Tennis Tournament Manager',
     short: 'Tournaments',
     tagline: 'Draws, scores and standings — all on this device',
+    /* The browser tab, and the line a search result is titled with. It repeats what
+       index.html already carries because a crawler that runs the app reads the
+       *rendered* title, and the app would otherwise leave the static one in place
+       only by accident. */
+    documentTitle: 'Table Tennis Tournament Manager — Derech Ben, Haifa',
   },
   nav: {
     home: 'Tournaments',
@@ -11,7 +16,6 @@ export const en = {
     back: 'Back',
     settings: 'Settings',
     club: 'Club page',
-    clubHint: 'The club on Facebook — opens in a new tab',
   },
   common: {
     save: 'Save',
@@ -34,6 +38,8 @@ export const en = {
   home: {
     empty: 'No tournaments yet.',
     emptyHint: 'Create one to get started.',
+    emptyAbout:
+      'Table tennis tournament management, start to finish: add the competitors, let the app draw groups or a knockout bracket, then tap in scores as matches finish — the brackets and the ITTF standings update themselves. Everything stays on this device; no account, no server.',
     create: 'New tournament',
     resume: 'Continue',
     players_one: '{{count}} player',
@@ -62,7 +68,15 @@ export const en = {
     addLevel: 'Level',
     addLevelHint: 'Add another level — its players never meet the others',
     removeLevelHint: 'Remove this level',
-    levelTab: 'Level {{name}}, {{count}} players',
+    levelTab: '{{name}} — {{count}} players',
+    // The default name of the nth level. Letters rather than numbers, and each
+    // language brings its own: 'A' is not what a Hebrew score sheet calls a division.
+    levelDefault: 'Level {{letter}}',
+    levelLetters: 'A,B,C,D,E',
+    // The format stage is walked level by level, so its heading names the level it is
+    // asking about and the sub-line says how far along the walk is.
+    formatFor: 'Format — {{name}}',
+    levelStep: 'level {{current}} of {{total}}',
   },
   format: {
     roundRobin: 'Round robin',
@@ -94,6 +108,8 @@ export const en = {
     openHint: 'Open {{name}} — record, photo and history',
     tapToAdd: 'Tap to add to this level',
     tapToRemove: 'Tap to remove from this level',
+    inLevel: 'In {{level}}',
+    tapToMove: 'Tap to move from {{level}} to this level',
     addAll: 'Add all',
     clearSelection: 'Clear',
   },
@@ -135,6 +151,12 @@ export const en = {
     walkoverFor: 'Walkover to {{name}}',
   },
   table: {
+    rankHint: 'Where they stand in the group, once the tiebreaks have run.',
+    playedHint: 'Matches played.',
+    wonHint: 'Matches won.',
+    gamesHint:
+      'Games won and games lost, added up over every match they played. A game taken in a match they lost still counts — that is what separates players level on wins.',
+    pointsHint: 'Match points: two for a win, one for a loss played out, none for a forfeit.',
     player: 'Player',
     played: 'P',
     won: 'W',
@@ -150,7 +172,14 @@ export const en = {
     lot: 'Separated by drawing lots',
     lotPointsUnavailable: 'Level on games — separated by drawing lots',
     pointsHint:
-      'Point ratio would decide this tie, but quick entry records no game scores. Re-enter the tied players’ matches against each other in detailed mode to separate them on points.',
+      'Point ratio would decide this tie, but these matches were entered without game scores. Add the scores for the tied players right here, or switch the whole tournament to detailed entry from Edit → Score entry.',
+    resolveFor: 'Add game scores · {{names}}',
+    sheetTitle: 'Break the tie on points',
+    sheetIntro:
+      'Enter the game scores of the matches between {{names}}. Point ratio separates them once all of these carry points.',
+    sheetScope: 'Only these matches change — the rest of the tournament keeps quick entry.',
+    sheetRemaining: '{{done}} of {{total}} ready to save. Point ratio needs all of them.',
+    sheetComplete: 'All of them are in — saving will break the tie on point ratio.',
   },
   edit: {
     title: 'Edit tournament',
@@ -166,6 +195,23 @@ export const en = {
     reinstated: '{{name}} is back in',
     removeHint: 'Remove from this level',
     removeBlocked: 'Cannot remove once matches have been played — withdraw instead',
+    levels: 'Levels',
+    levelAdded: '{{name}} added',
+    levelRemoved: '{{name}} removed',
+    levelRestored: '{{name}} is back',
+    removeLevelBlocked: 'Cannot remove a level once matches have been played in it',
+    moveTo: 'Move to',
+    moveHint: 'Move {{name}} to another level',
+    moveBlocked: 'Cannot move once matches have been played in this level — withdraw instead',
+    moved: '{{name}} moved to {{level}}',
+    formatChange: 'Change format',
+    formatHint: 'Pick the format this level is drawn in',
+    formatWarnResults:
+      'Changing the format redraws this level and discards the results whose matches it no longer has.',
+    formatChanged: 'Format changed',
+    formatCurrent: 'Now: {{format}}',
+    formatSuggest: 'Recommended for {{count}} players: {{format}}',
+    formatApply: 'Use it',
     redraw: 'Draw again',
     redrawHint: 'Generate a new random draw with a fresh seed',
     redrawWarn: 'This replaces the current draw. Continue?',

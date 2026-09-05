@@ -109,7 +109,7 @@ export function ViewShared({ payload }: { payload: string }) {
       ) : null}
 
       {tournament.levels.map((level) => {
-        const view = resolveLevel(level, tournament.results, tournament.scoreMode)
+        const view = resolveLevel(level, tournament.results)
         const bracket = view.matches.filter((m) => m.match.stage !== 'group' && !m.auto && !m.vacant)
         const lastRound = bracket.reduce((max, m) => Math.max(max, m.match.round), 0)
         const advancing =

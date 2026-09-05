@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useAppStore } from '../store/useAppStore'
 import { resolveLevel, type MatchView } from '../engine/resolve'
-import type { MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
+import type { GroupId, MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { GroupTable } from '../components/group/GroupTable'
+import { TiebreakSheet, type TieEntry, type TieMatch } from '../components/group/TiebreakSheet'
 import { MatchCard } from '../components/match/MatchCard'
 import { participantLabel, roundLabel } from '../components/match/labels'
 import { ScoreSheet } from '../components/score/ScoreSheet'
@@ -26,6 +27,8 @@ export function Run({ id }: { id: string }) {
   const [editing, setEditing] = useState<MatchView | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  /** The dead heat the resolver is aimed at, and the group it stands in. */
+  const [tie, setTie] = useState<{ groupId: GroupId; players: readonly PlayerId[] } | null>(null)
   /** The match whose score changed most recently, and when — drives the highlight. */
   const [lastChange, setLastChange] = useState<{ id: MatchId; at: number } | null>(null)
 
@@ -33,10 +36,13 @@ export function Run({ id }: { id: string }) {
     if (current?.id !== id) void openTournament(id)
   }, [id, current?.id, openTournament])
 
-  const level = current?.levels[activeLevel]
+  // A level can disappear from under the tab — removed in the edit sheet — so the
+  // index is clamped rather than left pointing past the end at a blank page.
+  const levelIndex = current ? Math.min(activeLevel, current.levels.length - 1) : 0
+  const level = current?.levels[levelIndex]
 
   const view = useMemo(
-    () => (current && level ? resolveLevel(level, current.results, current.scoreMode) : null),
+    () => (current && level ? resolveLevel(level, current.results) : null),
     [current, level],
   )
 
@@ -92,10 +98,54 @@ export function Run({ id }: { id: string }) {
     nameOf,
     groups: view.groups,
     bestOf: level.bestOf,
-    scoreMode: current.scoreMode,
     flashKey: lastChange?.id === matchId ? lastChange.at : undefined,
     onOpen: setEditing,
   })
+
+  // The matches standing between a dead heat and its point ratio: played between two
+  // of the tied players, in their own group, and recorded without game scores. A
+  // stale result is left out — it is not counted in the standings either, so giving
+  // it points would change nothing.
+  const tiedMatches: TieMatch[] = !tie
+    ? []
+    : view.matches
+        .filter(
+          (m) =>
+            m.match.groupId === tie.groupId &&
+            m.a.kind === 'player' &&
+            m.b.kind === 'player' &&
+            tie.players.includes(m.a.playerId) &&
+            tie.players.includes(m.b.playerId) &&
+            m.staleness === 'fresh' &&
+            m.result?.kind === 'quick',
+        )
+        .map((m) => {
+          const quick = m.result as { kind: 'quick'; a: number; b: number }
+          const a = m.a.kind === 'player' ? m.a.playerId : ''
+          const b = m.b.kind === 'player' ? m.b.playerId : ''
+          return {
+            id: m.match.id,
+            nameA: nameOf(a),
+            nameB: nameOf(b),
+            playedBy: [a, b] as [PlayerId, PlayerId],
+            recorded: { a: quick.a, b: quick.b },
+          }
+        })
+
+  /** Save the resolver's matches together: one tie broken, one undo. */
+  const saveTie = async (entries: TieEntry[]) => {
+    setTie(null)
+    if (entries.length === 0) return
+    const previous = entries.map((e) => [e.id, current.results[e.id]] as const)
+    setLastChange({ id: entries[0].id, at: Date.now() })
+    for (const entry of entries) await setResult(entry.id, entry.result, entry.playedBy)
+    toast(t('feedback.scoreSaved'), 'success', {
+      label: t('feedback.undo'),
+      run: () => {
+        for (const [matchId, before] of previous) restore(matchId, before)
+      },
+    })
+  }
 
   return (
     <>
@@ -133,7 +183,7 @@ export function Run({ id }: { id: string }) {
       {current.levels.length > 1 ? (
         <div className="no-print mb-5 flex flex-wrap gap-2">
           {current.levels.map((lvl, i) => (
-            <Chip key={lvl.id} selected={i === activeLevel} onClick={() => setActiveLevel(i)}>
+            <Chip key={lvl.id} selected={i === levelIndex} onClick={() => setActiveLevel(i)}>
               {lvl.name}
             </Chip>
           ))}
@@ -176,6 +226,7 @@ export function Run({ id }: { id: string }) {
                 rows={view.standings.get(group.id) ?? []}
                 nameOf={nameOf}
                 advancing={advancing}
+                onResolveTie={(players) => setTie({ groupId: group.id, players })}
               />
               <div className="space-y-1.5">
                 {view.matches
@@ -232,6 +283,16 @@ export function Run({ id }: { id: string }) {
         tournament={current}
         level={level}
         playedCount={view.played}
+        onSelectLevel={setActiveLevel}
+      />
+
+      <TiebreakSheet
+        open={tie !== null && tiedMatches.length > 0}
+        names={(tie?.players ?? []).map(nameOf)}
+        bestOf={level.bestOf}
+        matches={tiedMatches}
+        onSave={(entries) => void saveTie(entries)}
+        onClose={() => setTie(null)}
       />
 
       <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} tournament={current} />

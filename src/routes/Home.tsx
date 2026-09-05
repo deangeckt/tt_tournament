@@ -22,6 +22,12 @@ export function Home() {
         <Card className="text-center">
           <p className="text-lg font-medium">{t('home.empty')}</p>
           <p className="mt-1 text-court-600 dark:text-court-200">{t('home.emptyHint')}</p>
+          {/* Only ever read by someone who has never run a tournament here — and by
+              a crawler, which lands on empty storage every time. Regulars have a
+              list instead and never see it. */}
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-court-600 dark:text-court-200">
+            {t('home.emptyAbout')}
+          </p>
         </Card>
       ) : null}
 

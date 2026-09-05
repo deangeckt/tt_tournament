@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFixtures, resolveLevel, type LevelView } from '../resolve'
-import type { FormatConfig, Level, MatchId, PlayerId, ScoreMode, StoredResult } from '../types'
+import type { FormatConfig, Level, MatchId, PlayerId, StoredResult } from '../types'
 
 const players = (n: number): PlayerId[] => Array.from({ length: n }, (_, i) => `p${i + 1}`)
 
@@ -32,14 +32,14 @@ function enter(view: LevelView, results: Results, matchId: MatchId, side: 'a' | 
 }
 
 /** Play every playable match, always awarding side A, until nothing is left. */
-function playOut(level: Level, mode: ScoreMode = 'quick'): { results: Results; view: LevelView } {
+function playOut(level: Level): { results: Results; view: LevelView } {
   const results: Results = {}
-  let view = resolveLevel(level, results, mode)
+  let view = resolveLevel(level, results)
   for (let guard = 0; guard < 200; guard++) {
     const next = view.matches.find((m) => m.playable && !m.result)
     if (!next) break
     enter(view, results, next.match.id)
-    view = resolveLevel(level, results, mode)
+    view = resolveLevel(level, results)
   }
   return { results, view }
 }
@@ -71,7 +71,7 @@ describe('fixture generation', () => {
 describe('byes', () => {
   it('auto-advances a player facing a bye without needing a result', () => {
     const level = makeLevel({ format: 'singleElim' }, 12)
-    const view = resolveLevel(level, {}, 'quick')
+    const view = resolveLevel(level, {})
     const autos = view.matches.filter((m) => m.auto)
 
     expect(autos).toHaveLength(4) // 16-slot bracket, 12 players
@@ -84,7 +84,7 @@ describe('byes', () => {
 
   it('carries the auto-advanced player into the next round', () => {
     const level = makeLevel({ format: 'singleElim' }, 12)
-    const view = resolveLevel(level, {}, 'quick')
+    const view = resolveLevel(level, {})
     const auto = view.matches.find((m) => m.auto)!
     const next = view.matches.find(
       (m) =>
@@ -96,7 +96,7 @@ describe('byes', () => {
   })
 
   it('counts only real matches as playable', () => {
-    const view = resolveLevel(makeLevel({ format: 'singleElim' }, 12), {}, 'quick')
+    const view = resolveLevel(makeLevel({ format: 'singleElim' }, 12), {})
     // 12 players in a 16 bracket: 15 nodes, 4 decided by bye.
     expect(view.matches).toHaveLength(15)
     expect(view.total).toBe(11)
@@ -132,12 +132,12 @@ describe('editing a result', () => {
   it('recomputes the whole downstream tree', () => {
     const level = makeLevel({ format: 'singleElim' }, 4)
     const results: Results = {}
-    let view = resolveLevel(level, results, 'quick')
+    let view = resolveLevel(level, results)
 
     const [sf1, sf2] = view.matches.filter((m) => m.match.round === 0)
     enter(view, results, sf1.match.id, 'a')
     enter(view, results, sf2.match.id, 'a')
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
 
     const final = view.matches.find((m) => m.match.round === 1)!
     const firstFinalist = final.a.kind === 'player' ? final.a.playerId : undefined
@@ -145,7 +145,7 @@ describe('editing a result', () => {
 
     // Flip the first semi-final; the final's participant must change with it.
     enter(view, results, sf1.match.id, 'b')
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
     const updated = view.matches.find((m) => m.match.round === 1)!
     expect(updated.a.kind === 'player' ? updated.a.playerId : undefined).not.toBe(firstFinalist)
   })
@@ -153,23 +153,23 @@ describe('editing a result', () => {
   it('flags a downstream result as stale rather than misattributing it', () => {
     const level = makeLevel({ format: 'singleElim' }, 4)
     const results: Results = {}
-    let view = resolveLevel(level, results, 'quick')
+    let view = resolveLevel(level, results)
 
     const [sf1, sf2] = view.matches.filter((m) => m.match.round === 0)
     enter(view, results, sf1.match.id, 'a')
     enter(view, results, sf2.match.id, 'a')
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
 
     const final = view.matches.find((m) => m.match.round === 1)!
     enter(view, results, final.match.id, 'a')
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
     const originalChampion = view.champion
     expect(originalChampion).toBeDefined()
 
     // Correct the first semi-final. The final was played by someone who is no longer
     // in it, so its stored result must not silently crown a different player.
     enter(view, results, sf1.match.id, 'b')
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
 
     const staleFinal = view.byId.get(final.match.id)!
     expect(staleFinal.staleness).toBe('mismatched')
@@ -193,7 +193,7 @@ describe('editing a result', () => {
         enteredAt: 0,
       },
     }
-    const view = resolveLevel(level, swapped, 'quick')
+    const view = resolveLevel(level, swapped)
     expect(view.byId.get(first.id)!.staleness).toBe('swapped')
   })
 })
@@ -203,7 +203,7 @@ describe('groups into knockout', () => {
 
   it('keeps bracket slots undetermined until the groups finish', () => {
     const level = makeLevel(config, 16)
-    const view = resolveLevel(level, {}, 'quick')
+    const view = resolveLevel(level, {})
     const bracket = view.matches.filter((m) => m.match.stage !== 'group')
     expect(bracket.length).toBeGreaterThan(0)
     expect(bracket.every((m) => !m.playable)).toBe(true)
@@ -213,12 +213,12 @@ describe('groups into knockout', () => {
   it('feeds group qualifiers into the bracket once the groups are complete', () => {
     const level = makeLevel(config, 16)
     const results: Results = {}
-    let view = resolveLevel(level, results, 'quick')
+    let view = resolveLevel(level, results)
 
     for (const m of view.matches.filter((m) => m.match.stage === 'group')) {
       enter(view, results, m.match.id)
     }
-    view = resolveLevel(level, results, 'quick')
+    view = resolveLevel(level, results)
 
     const firstRound = view.matches.filter((m) => m.match.stage !== 'group' && m.match.round === 0)
     expect(firstRound.every((m) => m.playable)).toBe(true)

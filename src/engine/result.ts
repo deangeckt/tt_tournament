@@ -31,6 +31,12 @@ function countGames(games: readonly GameScore[]): { gamesA: number; gamesB: numb
   return { gamesA, gamesB, pointsA, pointsB }
 }
 
+/** Games each side has taken — the pair, not the winner: a half-played match has neither. */
+export function gamesWon(games: readonly GameScore[]): { a: number; b: number } {
+  const counted = countGames(games)
+  return { a: counted.gamesA, b: counted.gamesB }
+}
+
 export function tally(result: MatchResult, bestOf: BestOf): ResultTally {
   const target = gamesToWin(bestOf)
 

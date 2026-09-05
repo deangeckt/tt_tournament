@@ -34,24 +34,6 @@ Vitest only picks up `src/**/*.test.ts` and runs in the `node` environment — t
 engine needs no DOM. There is no component-test setup yet; adding one means adding
 jsdom and a `test.environmentMatchGlobs` entry in `vite.config.ts`.
 
-## Deploying to GitHub Pages
-
-The workflow (`.github/workflows/deploy.yml`) is already committed. It runs on push
-to `main`, gates on `npm run lint` and `npm test`, then publishes `dist/`.
-
-One-time setup, once the repo exists on GitHub:
-
-```bash
-git remote add origin git@github.com:<user>/<repo>.git
-git push -u origin main
-```
-
-Then in the repo: **Settings → Pages → Source: GitHub Actions**. Nothing else to
-configure — `base` is relative (see below), so any repo name or custom domain works.
-
-Gating the deploy on the engine tests is deliberate: a tiebreak regression is
-invisible until it produces a wrong ranking in front of a room full of players.
-
 ## Architecture
 
 ### The decision everything else follows from
@@ -185,6 +167,29 @@ matches of the tied players only.
 The lot sorts both its seed input and the shuffled array, so a drawn tie depends only
 on *who* is tied, not the order they happen to be listed in.
 
+**Point ratio reads the data, never the entry mode.** Whether the tournament is set to
+quick or detailed entry says how scores are *typed in*; whether a criterion can run is
+decided by what was actually recorded, so `pointsUsable` asks only that every mutual
+match carry per-game points. This is what lets one tie be given its points on its own
+(see below) instead of the mode gating scores that are already stored.
+
+A lot reports *why* it was reached. `lotPointsUnavailable` is the actionable one, and
+it is deliberately narrow: some mutual match must be quick-entry **and** every other one
+must already have points. One walkover among the tied players and no amount of typing
+will make point ratio run, so that case stays a plain `lot` rather than sending the
+manager off to enter scores that change nothing. Lot rows also carry `tieGroup` — the
+dead heat itself — because the UI needs to name those players and find their matches
+without re-deriving the tiers it took to get there.
+
+**Breaking a tie is done where it is reported.** A club on quick entry only discovers it
+needed game scores when the table says two players are level, long after those matches
+were played. So `components/group/TiebreakSheet.tsx` lists exactly the matches blocking
+point ratio and takes their game scores — the tournament stays on quick entry, and only
+those matches change. Switching the whole night to detailed entry is still offered in
+the hint text, but it is the larger lever and it does not do the work: those matches
+would still have to be re-entered. The per-game inputs are shared with the score sheet
+(`components/score/GameEntry.tsx`) so the two cannot drift into different validation.
+
 ## Conventions
 
 **Theming.** Dark mode is a *choice*, not only a system setting: the resolved theme
@@ -209,6 +214,11 @@ RTL is a single `dir` attribute rather than a stylesheet fork.
 `components/common/ui.tsx`. Unisolated, the bidi algorithm renders `11-9` as `9-11` in
 an RTL paragraph — which reads as a wrong score, not a layout bug. This is the highest-
 risk visual bug in the app.
+
+A pair that belongs to one player obeys the same rule: the games column is
+won-then-lost, so `<Score a={gamesFor} b={gamesAgainst} sep=":" />` puts the games won
+on the right in Hebrew, where the eye starts. Hence `sep` on `<Score>` rather than a
+second component for colon pairs — one that would sooner or later forget to flip.
 
 Isolation alone is not enough, though. `<Score a b>` takes `a` as the *first-named*
 player — the one at the start of the row, which in Hebrew is the one on the **right** —
@@ -269,17 +279,61 @@ couple of pixels off centre) and flattens the paper to pure white, giving a disc
 reads as a badge in both themes. `src/assets/logo.jpg` is the unshipped master, same
 arrangement as `doodle.webp`; regenerate rather than hand-edit.
 
+**Search.** The app is one indexable document and always will be: hash routing puts
+every screen in the fragment, which browsers never send to a server. So the whole SEO
+surface is `index.html`'s head plus what React renders — nothing here is per-route, and
+adding a route does not add a page to be optimised.
+
+Three consequences worth keeping straight. The head carries **absolute** urls
+(`canonical`, `og:`, the JSON-LD `@id`s, and `public/sitemap.xml`) because those four
+forbid relative ones; they are the only place the deployed origin is hard-coded, and the
+Vite `base` stays relative so a fork still builds. `public/robots.txt` is ceremony under
+github.io — crawlers read robots.txt from the *host root*, which belongs to the
+user-pages repo — and is there for the day this gets its own domain. And the descriptive
+copy lives in `<noscript>` and in **the home screen's empty state**, never in hidden
+markup: storage is per-origin, so a crawler renders an empty roster every single time,
+which makes the empty state both the first-time visitor's screen and the only one a
+search engine sees. Text shown to crawlers and hidden from readers is cloaking; text
+that happens to be what a newcomer needs is just the empty state doing its job.
+
+`app.documentTitle` exists because a rendering crawler reads the *rendered* title. It
+repeats what the static `<title>` says, in whichever language is on.
+
+**Share card.** `public/og.jpg` (1200x630) is generated by `scripts/make-og.mjs` from the
+logo master and the doodle mask, on the dark theme's own ground — same "regenerate, do
+not hand-edit" arrangement as the logo and the wallpaper. It carries no text on purpose:
+ffmpeg's `drawtext` does no bidi reordering, so any Hebrew in it would come out reversed
+unless pre-flipped by hand against whichever font that machine happens to have. `og:title`
+supplies the words, and the emblem already spells the club's name inside its ring.
+
 **Editing.** Because the engine re-derives from source, almost everything is safe to
-change mid-tournament. Only two operations are guarded: re-drawing (discards that
-level's results) and removing a player who has already played (offer withdrawal
-instead).
+change mid-tournament — including adding a level, moving a player from one level to
+another, and changing a level's format, all from the edit sheet. Only three operations
+are guarded: re-drawing (discards that level's results), taking a player out of a level
+that has already played — removing or moving them, same rule, offer withdrawal instead
+— and removing a level that holds any stored result at all. That last guard counts
+*stored* results rather than fresh ones: a level holding nothing but flagged results
+looks unplayed to `view.played`, and deleting it would throw those results away with
+nothing to undo from.
+
+A player belongs to exactly one level, so moving and adding are one operation: the
+pickers offer someone another level is already holding, labelled with that level, and
+one tap moves them. Retyping a name that is on the roster does the same, which is what
+stops the same person being entered into two levels at once.
 
 ## Status
 
-Working: the engine, the setup wizard with the illustrated format picker and duration
-advice, saved roster, seeded draw, hand-editable draw, quick/detailed score entry, live
+Working: the engine, the three-stage setup wizard — details, then levels and their
+players, then the illustrated format picker with duration advice *once per level*, so a
+three-level night answers the format question three times and only the last one offers
+Create. Levels are born in the players stage and nowhere else; the format stage walks
+them, and the route step carries the walk so Back steps level by level.
+
+Also working: saved roster, seeded draw, hand-editable draw, quick/detailed score entry, live
 ITTF standings, round robin, single elimination, groups→knockout, multiple levels,
-in-tournament editing, withdrawals, light/dark/system theme, deleting a tournament (confirmed, with undo),
+in-tournament editing (levels added, removed and re-formatted; players moved between
+them), withdrawals, the tiebreak resolver (game scores for one dead heat, entered from
+the standings table itself), light/dark/system theme, deleting a tournament (confirmed, with undo),
 Hebrew/English RTL, player profiles (photo, career record, tournament history), share
 links + QR + print/PDF, always-shortened share links, adopting a shared tournament into
 this device's own history, JSON export/import from the settings screen, and the doodle

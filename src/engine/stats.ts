@@ -70,7 +70,7 @@ export function playerStats(
     for (const level of tournament.levels) {
       if (!level.playerIds.includes(playerId)) continue
 
-      const view = resolveLevel(level, tournament.results, tournament.scoreMode)
+      const view = resolveLevel(level, tournament.results)
       const record: PlayerTournamentRecord = {
         tournamentId: tournament.id,
         tournamentName: tournament.name,
@@ -139,7 +139,7 @@ export function headToHead(
   for (const tournament of tournaments) {
     for (const level of tournament.levels) {
       if (!level.playerIds.includes(playerId) || !level.playerIds.includes(opponentId)) continue
-      const view = resolveLevel(level, tournament.results, tournament.scoreMode)
+      const view = resolveLevel(level, tournament.results)
 
       for (const match of view.matches) {
         if (!match.result || match.staleness !== 'fresh') continue

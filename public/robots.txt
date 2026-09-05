@@ -1,0 +1,12 @@
+# One page, all of it crawlable. Every screen is a fragment of this same document,
+# and a fragment is never sent to a server, so there is nothing here to allow or hide.
+#
+# Under github.io this file is mostly ceremony: crawlers read robots.txt only from the
+# host root, and the root of a shared github.io belongs to the user-pages repo, not to
+# this one. It is here so it is already right the day this moves to its own domain —
+# and because the Sitemap line below is still worth stating even where only Search
+# Console will act on it.
+User-agent: *
+Allow: /
+
+Sitemap: https://deangeckt.github.io/tt_tournament/sitemap.xml

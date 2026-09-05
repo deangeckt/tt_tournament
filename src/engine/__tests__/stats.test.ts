@@ -36,7 +36,7 @@ function tournament(overrides: Partial<Tournament> = {}): Tournament {
 /** Play every match, always awarding the winner named by `pick`. */
 function playAll(base: Tournament, pick: (a: string, b: string) => string): Tournament {
   const results: Record<MatchId, StoredResult> = {}
-  let view = resolveLevel(base.levels[0], results, base.scoreMode)
+  let view = resolveLevel(base.levels[0], results)
   for (let guard = 0; guard < 100; guard++) {
     const next = view.matches.find((m) => m.playable && !m.result)
     if (!next || next.a.kind !== 'player' || next.b.kind !== 'player') break
@@ -48,7 +48,7 @@ function playAll(base: Tournament, pick: (a: string, b: string) => string): Tour
       playedBy: [a, b],
       enteredAt: 0,
     }
-    view = resolveLevel(base.levels[0], results, base.scoreMode)
+    view = resolveLevel(base.levels[0], results)
   }
   return { ...base, results }
 }

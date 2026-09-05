@@ -6,7 +6,6 @@ import type {
   MatchId,
   MatchResult,
   PlayerId,
-  ScoreMode,
   Slot,
   StoredResult,
 } from './types'
@@ -169,7 +168,6 @@ function classifyStaleness(stored: StoredResult, a: Participant, b: Participant)
 export function resolveLevel(
   level: Level,
   results: Readonly<Record<MatchId, StoredResult>>,
-  scoreMode: ScoreMode,
 ): LevelView {
   const { groups, matches } = buildFixtures(level)
   const matchesById = new Map(matches.map((m) => [m.id, m]))
@@ -200,7 +198,6 @@ export function resolveLevel(
       matches: groupMatches,
       results: usable,
       bestOf: level.bestOf,
-      scoreMode,
       seed: level.seed,
       excluded: playersToExclude(groupMatches, usable, level.withdrawn),
     })

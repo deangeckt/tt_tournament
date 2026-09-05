@@ -7,9 +7,109 @@
          replacing its filename. -->
     <link rel="icon" type="image/svg+xml" href="./racket.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- One unconditional tag rather than a media-scoped pair: store/theme.ts rewrites
+         this element's content from the *resolved* theme, which is a choice and not
+         only a system setting, and a media attribute would gate it on the system one. -->
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content="ניהול טורנירי טניס שולחן — הגרלה, תוצאות וטבלאות" />
-    <title>ניהול תחרויות טניס שולחן</title>
+
+    <!-- Search. There is exactly one indexable document here: hash routing means every
+         screen is the same URL, and a share link's payload rides in the fragment, which
+         browsers never send to a server. So the whole SEO surface is this head plus what
+         React renders into it — hence the absolute canonical, the noscript summary below,
+         and the JSON-LD naming the club. Absolute urls are unavoidable here (canonical,
+         og:image and sitemap all forbid relative ones), so they are the one place a fork
+         has to edit; the Vite base stays relative. -->
+    <title>ניהול תחרויות טניס שולחן — דרך בן, חיפה</title>
+    <meta
+      name="description"
+      content="אפליקציה חינמית לניהול תחרות טניס שולחן מהדפדפן: הגרלת בתים, נוק-אאוט, הזנת תוצאות וטבלאות דירוג חיות לפי חוקי ITTF. בעברית, בלי הרשמה. מבית דרך בן — טניס שולחן חיפה."
+    />
+    <!-- Google ignores this one; Bing, Yandex and a few Israeli aggregators still read it. -->
+    <meta
+      name="keywords"
+      content="ניהול תחרות טניס שולחן, ניהול תחרויות טניס שולחן, תחרות טניס שולחן, טורניר טניס שולחן, ניהול טורניר טניס שולחן, דרך בן, דרך בן טניס שולחן, טניס שולחן חיפה, טבלת בתים, הגרלת טורניר, ITTF, table tennis tournament manager"
+    />
+    <link rel="canonical" href="https://deangeckt.github.io/tt_tournament/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="author" content="דרך בן — טניס שולחן חיפה" />
+    <meta name="application-name" content="ניהול תחרויות טניס שולחן" />
+    <meta name="apple-mobile-web-app-title" content="טורנירים" />
+
+    <!-- These links are read far more often than they are searched for: they go into a
+         WhatsApp group, and the card is the first thing anyone sees of the app. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="דרך בן — טניס שולחן חיפה" />
+    <meta property="og:locale" content="he_IL" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="ניהול תחרויות טניס שולחן — דרך בן, חיפה" />
+    <meta
+      property="og:description"
+      content="הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
+    />
+    <meta property="og:url" content="https://deangeckt.github.io/tt_tournament/" />
+    <meta property="og:image" content="https://deangeckt.github.io/tt_tournament/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="סמל המועדון דרך בן — טניס שולחן חיפה" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ניהול תחרויות טניס שולחן — דרך בן, חיפה" />
+    <meta
+      name="twitter:description"
+      content="הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
+    />
+    <meta name="twitter:image" content="https://deangeckt.github.io/tt_tournament/og.jpg" />
+
+    <!-- Two things a crawler cannot infer from a single-page app: that this software is
+         free and what it does, and that "דרך בן" is a table tennis club in Haifa rather
+         than a phrase. Kept to types that need no address or opening hours — a
+         LocalBusiness without one is a warning in Search Console, not a rich result. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://deangeckt.github.io/tt_tournament/#app",
+            "name": "ניהול תחרויות טניס שולחן",
+            "alternateName": ["Table Tennis Tournament Manager", "טורנירים - דרך בן"],
+            "url": "https://deangeckt.github.io/tt_tournament/",
+            "description": "אפליקציה חינמית לניהול תחרות טניס שולחן: הגרלה אקראית עם זרע שמור, בתים, נוק-אאוט וליגה, הזנת תוצאות מהירה או מפורטת, וטבלאות דירוג חיות לפי שרשרת שובר השוויון של ITTF. הכול רץ בדפדפן, בלי שרת ובלי חשבון.",
+            "applicationCategory": "SportsApplication",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript",
+            "inLanguage": ["he", "en"],
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ILS" },
+            "license": "https://opensource.org/licenses/MIT",
+            "screenshot": "https://deangeckt.github.io/tt_tournament/og.jpg",
+            "featureList": [
+              "הגרלת טורניר אקראית עם זרע שמור לשחזור ההגרלה",
+              "בתים ובית גמר, נוק-אאוט, וליגה (round robin)",
+              "כמה רמות (א', ב', ג') בערב אחד",
+              "הזנת תוצאות מהירה או משחקון-משחקון",
+              "טבלאות דירוג חיות עם שרשרת שובר השוויון של ITTF",
+              "שיתוף התוצאות בקישור או ב-QR והדפסה ל-PDF",
+              "רשימת שחקנים קבועים עם היסטוריה ומאזן קריירה"
+            ],
+            "publisher": { "@id": "https://deangeckt.github.io/tt_tournament/#club" }
+          },
+          {
+            "@type": "SportsOrganization",
+            "@id": "https://deangeckt.github.io/tt_tournament/#club",
+            "name": "דרך בן — טניס שולחן חיפה",
+            "alternateName": ["דרך בן", "Derech Ben Table Tennis Haifa"],
+            "sport": "טניס שולחן",
+            "description": "חוגי טניס שולחן ותחרויות בחיפה ובצפון.",
+            "areaServed": { "@type": "City", "name": "חיפה" },
+            "logo": "https://deangeckt.github.io/tt_tournament/og.jpg",
+            "sameAs": [
+              "https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/",
+              "https://github.com/deangeckt/tt_tournament"
+            ]
+          }
+        ]
+      }
+    </script>
     <script>
       // Set direction and theme before the bundle loads. Without this the page paints
       // LTR for a moment on every load, which reads as a broken layout in Hebrew, and
@@ -35,6 +135,39 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- The only prose a crawler that does not run scripts will ever see here. It is in
+         noscript rather than inside #root because React replaces #root's children on
+         mount: static copy there would either flash and vanish or have to be hidden,
+         and text hidden from readers but left for crawlers is the definition of
+         cloaking. Googlebot renders the app itself and reads the real headings. -->
+    <noscript>
+      <h1>ניהול תחרויות טניס שולחן</h1>
+      <p>
+        אפליקציה חינמית וקוד פתוח לניהול תחרות טניס שולחן במועדון: מזינים את המשתתפים,
+        מגרילים את הטורניר, מקישים תוצאות תוך כדי המשחקים, והטבלאות והבתים מתעדכנים לבד.
+        הכול רץ בדפדפן — בלי שרת, בלי חשבון ובלי מעקב.
+      </p>
+      <h2>מה יש בה</h2>
+      <ul>
+        <li>פורמטים לכל רמה: בתים ובית גמר, נוק-אאוט, או ליגה (round robin).</li>
+        <li>כמה רמות מקבילות (א', ב', ג') באותו ערב.</li>
+        <li>הגרלה אקראית עם זרע שמור, כך שאפשר לשחזר אותה ולוודא שלא סודרה מראש.</li>
+        <li>טבלאות דירוג חיות לפי שרשרת שובר השוויון של ITTF: נקודות, מפגש ישיר, יחס משחקונים, יחס נקודות, הגרלה.</li>
+        <li>שיתוף התוצאות בקישור או בקוד QR, והדפסה ל-PDF.</li>
+        <li>רשימת שחקנים קבועים עם תמונה, מאזן קריירה והיסטוריית תחרויות.</li>
+      </ul>
+      <p>
+        הכלי נבנה עבור <strong>דרך בן — טניס שולחן חיפה</strong>, מועדון וחוגי טניס שולחן
+        בחיפה ובצפון, והוא פתוח לשימוש כל מועדון.
+        <a
+          href="https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/"
+          >עמוד המועדון</a
+        >
+        ·
+        <a href="https://github.com/deangeckt/tt_tournament">קוד המקור ב-GitHub</a>
+      </p>
+      <p>יש להפעיל JavaScript כדי להשתמש באפליקציה.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

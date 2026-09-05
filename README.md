@@ -1,8 +1,15 @@
-# TT Tournament
+# TT Tournament — ניהול תחרויות טניס שולחן
+
+**[Live site](https://deangeckt.github.io/tt_tournament/)**
 
 A free, open-source web app for running table tennis tournaments at a club: add the
 competitors, let the app draw the tournament, tap in scores as matches finish, and
 watch standings and brackets update live.
+
+בעברית: אפליקציה חינמית לניהול תחרות טניס שולחן — הגרלת בתים ונוק-אאוט, הזנת תוצאות
+וטבלאות דירוג חיות לפי חוקי ITTF. נבנתה עבור
+[דרך בן — טניס שולחן חיפה](https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/),
+ופתוחה לשימוש כל מועדון.
 
  **No backend, no accounts, no tracking** — it is a static site, everything lives in your browser.
 
@@ -55,6 +62,10 @@ src/assets/      the doodle wallpaper
 Fork the repo, then set **Settings → Pages → Source: GitHub Actions**. Pushing to
 `main` runs lint and tests, then builds and publishes. The Vite `base` is relative, so
 it works under any repo name.
+
+Four things do carry the original's absolute url and are worth editing in a fork: the
+`canonical`, `og:` and JSON-LD urls in `index.html`, and `public/sitemap.xml`. The
+share card at `public/og.jpg` is generated — `node scripts/make-og.mjs`, needs ffmpeg.
 
 ## License
 

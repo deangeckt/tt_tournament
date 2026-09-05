@@ -18,13 +18,31 @@ function useRtl(): boolean {
  * which reads as the score being given to the wrong player. So in RTL the pair is
  * emitted in visual order too, and the number nearest a name is always that
  * player's.
+ *
+ * The same holds for a pair that belongs to one player rather than two — a "3:2"
+ * games column is won-then-lost, and in RTL the won figure has to be the one on the
+ * right, where reading starts. Hence `sep`: the ordering rule is the pair's, not the
+ * separator's, so a colon pair gets it for free instead of growing a second
+ * component that would sooner or later forget to flip.
  */
-export function Score({ a, b, className = '' }: { a: number; b: number; className?: string }) {
+export function Score({
+  a,
+  b,
+  sep = '–',
+  className = '',
+}: {
+  a: number
+  b: number
+  sep?: string
+  className?: string
+}) {
   const rtl = useRtl()
   const [left, right] = rtl ? [b, a] : [a, b]
   return (
     <span dir="ltr" className={`num tabular-nums ${className}`} style={{ unicodeBidi: 'isolate' }}>
-      {left}–{right}
+      {left}
+      {sep}
+      {right}
     </span>
   )
 }

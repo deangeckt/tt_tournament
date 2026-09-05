@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A single-url sitemap looks redundant next to the canonical, and mostly is. It
+     earns its place by being the thing Search Console accepts as a submission, which
+     is how a page on a shared github.io host gets crawled in days rather than weeks.
+     lastmod is only a hint; leave it stale rather than touching it on every deploy. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://deangeckt.github.io/tt_tournament/</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

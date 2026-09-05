@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeStandings, playersToExclude, type StandingsInput } from '../standings'
-import type { BestOf, GameScore, Match, MatchId, MatchResult, PlayerId, ScoreMode, StoredResult } from '../types'
+import type { BestOf, GameScore, Match, MatchId, MatchResult, PlayerId, StoredResult } from '../types'
 
 /** Build an explicit match list so each scenario controls the exact topology. */
 function matchesFor(pairs: Array<[PlayerId, PlayerId]>): Match[] {
@@ -43,7 +43,7 @@ function run(
   playerIds: PlayerId[],
   pairs: Array<[PlayerId, PlayerId]>,
   results: Array<MatchResult | undefined>,
-  opts: { scoreMode?: ScoreMode; bestOf?: BestOf; seed?: string } = {},
+  opts: { bestOf?: BestOf; seed?: string } = {},
 ) {
   const matches = matchesFor(pairs)
   const input: StandingsInput = {
@@ -51,7 +51,6 @@ function run(
     matches,
     results: store(matches, results),
     bestOf: opts.bestOf ?? 5,
-    scoreMode: opts.scoreMode ?? 'detailed',
     seed: opts.seed ?? 'SEED',
   }
   return { rows: computeStandings(input), order: computeStandings(input).map((r) => r.playerId), matches, input }
@@ -198,19 +197,20 @@ describe('standings — tiebreaks', () => {
     expect(byId['B'].matchPoints).toBe(3) // one win and one played loss
   })
 
-  it('skips point ratio in quick mode', () => {
+  it('skips point ratio when the tied matches carry no game scores', () => {
     const pairs: Array<[PlayerId, PlayerId]> = [
       ['A', 'B'],
       ['B', 'C'],
       ['C', 'A'],
     ]
     // Symmetric cycle: match points and game ratio are all identical, so the only
-    // thing left is point ratio — unavailable in quick mode, so this must go to lot,
-    // and the lot must say it was the missing scores that got it there.
-    const { rows } = run(['A', 'B', 'C'], pairs, [quick(3, 1), quick(3, 1), quick(3, 1)], {
-      scoreMode: 'quick',
-    })
+    // thing left is point ratio — which quick entry never recorded, so this must go
+    // to lot, and the lot must say it was the missing scores that got it there.
+    const { rows } = run(['A', 'B', 'C'], pairs, [quick(3, 1), quick(3, 1), quick(3, 1)])
     expect(rows.every((r) => r.tiebreakReason === 'lotPointsUnavailable')).toBe(true)
+    // It must also name the dead heat: that list is what the tiebreak resolver
+    // collects the matches from.
+    expect(rows.every((r) => r.tieGroup?.join(',') === 'A,B,C')).toBe(true)
   })
 
   it('reports a plain lot when detailed scores are in and still inseparable', () => {
@@ -237,12 +237,62 @@ describe('standings — tiebreaks', () => {
       ['B', 'C'],
       ['C', 'A'],
     ]
-    // A walkover has no points to enter, so re-entering it in detailed mode would
-    // change nothing — this is a plain lot, not an actionable one.
+    // A walkover has no points to enter, so entering game scores would change
+    // nothing — this is a plain lot, not an actionable one.
     const wo = (winner: 'a' | 'b'): MatchResult => ({ kind: 'walkover', winner })
-    const { rows } = run(['A', 'B', 'C'], pairs, [wo('a'), wo('a'), wo('a')], {
-      scoreMode: 'detailed',
-    })
+    const { rows } = run(['A', 'B', 'C'], pairs, [wo('a'), wo('a'), wo('a')])
+    expect(rows.every((r) => r.tiebreakReason === 'lot')).toBe(true)
+  })
+
+  it('separates a tie on points that were entered for the tied matches alone', () => {
+    // What the tiebreak resolver produces: a night run on quick entry where only the
+    // three matches inside the dead heat were given their game scores. Point ratio
+    // must run on them — it is the recorded data that decides, never the tournament's
+    // entry mode, or those scores would be stored and then ignored.
+    const pairs: Array<[PlayerId, PlayerId]> = [
+      ['A', 'B'],
+      ['B', 'C'],
+      ['C', 'A'],
+      ['A', 'D'],
+      ['B', 'D'],
+      ['C', 'D'],
+    ]
+    const { rows } = run(['A', 'B', 'C', 'D'], pairs, [
+      detailed([[11, 0], [11, 0], [0, 11], [11, 0]]),
+      detailed([[11, 8], [11, 8], [8, 11], [11, 8]]),
+      detailed([[11, 9], [11, 9], [9, 11], [11, 9]]),
+      quick(3, 0),
+      quick(3, 0),
+      quick(3, 0),
+    ])
+    expect(rows.map((r) => r.playerId)).toEqual(['A', 'C', 'B', 'D'])
+    expect(rows[0].tiebreakReason).toBe('pointRatio')
+  })
+
+  it('does not blame missing scores when one tied match has no points to enter', () => {
+    // Four level on match points and on games: a cycle of quick wins, plus a pair of
+    // forfeited matches that score nothing for anybody. Entering the quick matches'
+    // games would still leave those two without points, so point ratio can never run
+    // here — and saying otherwise sends the user off to type in scores that change
+    // nothing.
+    const pairs: Array<[PlayerId, PlayerId]> = [
+      ['A', 'B'],
+      ['C', 'D'],
+      ['A', 'C'],
+      ['C', 'B'],
+      ['B', 'D'],
+      ['D', 'A'],
+    ]
+    const dead: MatchResult = { kind: 'doubleForfeit' }
+    const { rows } = run(['A', 'B', 'C', 'D'], pairs, [
+      dead,
+      dead,
+      quick(3, 1),
+      quick(3, 1),
+      quick(3, 1),
+      quick(3, 1),
+    ])
+    expect(rows.every((r) => r.matchPoints === 3)).toBe(true)
     expect(rows.every((r) => r.tiebreakReason === 'lot')).toBe(true)
   })
 
@@ -270,9 +320,9 @@ describe('standings — tiebreaks', () => {
       ['C', 'A'],
     ]
     const results = [quick(3, 1), quick(3, 1), quick(3, 1)]
-    const a = run(['A', 'B', 'C'], pairs, results, { scoreMode: 'quick', seed: 'S1' })
-    const b = run(['A', 'B', 'C'], pairs, results, { scoreMode: 'quick', seed: 'S1' })
-    const c = run(['A', 'B', 'C'], pairs, results, { scoreMode: 'quick', seed: 'S2' })
+    const a = run(['A', 'B', 'C'], pairs, results, { seed: 'S1' })
+    const b = run(['A', 'B', 'C'], pairs, results, { seed: 'S1' })
+    const c = run(['A', 'B', 'C'], pairs, results, { seed: 'S2' })
 
     expect(a.order).toEqual(b.order)
     expect(a.rows.every((r) => r.tiebreakReason === 'lotPointsUnavailable')).toBe(true)
@@ -287,8 +337,8 @@ describe('standings — tiebreaks', () => {
       ['C', 'A'],
     ]
     const results = [quick(3, 1), quick(3, 1), quick(3, 1)]
-    const forward = run(['A', 'B', 'C'], pairs, results, { scoreMode: 'quick' })
-    const reversed = run(['C', 'B', 'A'], pairs, results, { scoreMode: 'quick' })
+    const forward = run(['A', 'B', 'C'], pairs, results)
+    const reversed = run(['C', 'B', 'A'], pairs, results)
     expect(forward.order).toEqual(reversed.order)
   })
 
@@ -364,7 +414,6 @@ describe('withdrawals', () => {
       matches,
       results,
       bestOf: 5,
-      scoreMode: 'quick',
       seed: 'S',
       excluded: new Set(['A']),
     })

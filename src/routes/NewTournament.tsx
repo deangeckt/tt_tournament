@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate, useRouteStep } from '../router'
 import { newId, useAppStore } from '../store/useAppStore'
@@ -8,6 +8,8 @@ import type { BestOf, FormatConfig, Level, PlayerId, ScoreMode, Tournament } fro
 import { Button, Card, Chip, Field, PageTitle, inputClass } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
 import { toast } from '../store/useToasts'
+import type { TFunction } from 'i18next'
+import { levelDefaultName } from '../i18n/levelName'
 import { PlayerPicker } from '../components/wizard/PlayerPicker'
 import { FormatPicker } from '../components/wizard/FormatPicker'
 
@@ -17,24 +19,91 @@ interface DraftLevel {
   playerIds: PlayerId[]
   config: FormatConfig
   bestOf: BestOf
+  /**
+   * The manager picked this format themselves. Until they do, the level follows the
+   * recommendation for its own field size — otherwise a second level silently stays
+   * the round robin it was born as while the first one draws groups.
+   */
+  formatChosen: boolean
 }
 
-// A bare letter reads as a list marker rather than a name — 'דרג' is the word that
-// makes it a division. Only a default: the name is editable per level.
-const LEVEL_NAMES = ['דרג א׳', 'דרג ב׳', 'דרג ג׳', 'דרג ד׳', 'דרג ה׳']
-
-function emptyLevel(index: number): DraftLevel {
+function emptyLevel(index: number, t: TFunction): DraftLevel {
   return {
     key: newId(),
-    name: LEVEL_NAMES[index] ?? `דרג ${index + 1}`,
+    name: levelDefaultName(index, t),
     playerIds: [],
-    config: { format: 'roundRobin' },
+    config: suggestedConfig(0),
     bestOf: 5,
+    formatChosen: false,
   }
 }
 
-const STEPS = ['nameStep', 'playersStep', 'formatStep'] as const
+/** Set a level's players, keeping an unchosen format on the recommendation. */
+function withPlayers(level: DraftLevel, playerIds: PlayerId[]): DraftLevel {
+  return {
+    ...level,
+    playerIds,
+    config: level.formatChosen ? level.config : suggestedConfig(playerIds.length),
+  }
+}
 
+/**
+ * Turn the finished draft into the tournament that gets saved.
+ *
+ * Outside the component on purpose: it stamps timestamps and mints a seed per level,
+ * neither of which belongs anywhere near a render.
+ */
+function buildTournament(
+  draft: {
+    name: string
+    date: string
+    scoreMode: ScoreMode
+    tableCount: number
+    levels: DraftLevel[]
+  },
+  roster: readonly { id: PlayerId; name: string }[],
+): Tournament {
+  const usedIds = new Set(draft.levels.flatMap((l) => l.playerIds))
+  const now = Date.now()
+  return {
+    id: newId(),
+    name: draft.name.trim(),
+    date: draft.date,
+    scoreMode: draft.scoreMode,
+    tableCount: draft.tableCount,
+    // Slim copies: a tournament needs a name to print, not a roster photo. Keeping
+    // photos out here is what lets the whole thing fit in a share link.
+    players: roster.filter((p) => usedIds.has(p.id)).map(({ id, name }) => ({ id, name })),
+    levels: draft.levels.map<Level>((level) => ({
+      id: level.key,
+      name: level.name,
+      playerIds: level.playerIds,
+      config: level.config,
+      bestOf: level.bestOf,
+      seed: generateSeed(),
+      withdrawn: [],
+    })),
+    results: {},
+    tableAssignments: {},
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+const STAGES = ['nameStep', 'playersStep', 'formatStep'] as const
+
+/**
+ * The three-stage setup wizard: details, players, format.
+ *
+ * The route step is not quite the stage. Steps 0 and 1 are the first two stages; step
+ * 2 and every step after it are the *format stage, one level at a time* — so a night
+ * with three levels answers the format question three times, and Back walks back
+ * through them level by level rather than dropping out of the stage.
+ *
+ * Levels are created and staffed in stage 2 and nowhere else. Offering "+ Level" again
+ * on a format screen only raises the question of what a level added there is meant to
+ * contain, and it lets a manager reach Create having never seen the new level's format.
+ */
 export function NewTournament() {
   const { t } = useTranslation()
   const roster = useAppStore((s) => s.roster)
@@ -45,60 +114,95 @@ export function NewTournament() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [scoreMode, setScoreMode] = useState<ScoreMode>('quick')
   const [tableCount, setTableCount] = useState(4)
-  const [levels, setLevels] = useState<DraftLevel[]>([emptyLevel(0)])
+  const [levels, setLevels] = useState<DraftLevel[]>(() => [emptyLevel(0, t)])
   const [activeLevel, setActiveLevel] = useState(0)
 
-  const patchLevel = (index: number, patch: Partial<DraftLevel>) =>
-    setLevels((prev) => prev.map((level, i) => (i === index ? { ...level, ...patch } : level)))
+  // Keyed rather than indexed: the format stage walks the levels that have players,
+  // whose positions are not the positions in `levels`.
+  const patchLevel = (key: string, patch: Partial<DraftLevel>) =>
+    setLevels((prev) => prev.map((level) => (level.key === key ? { ...level, ...patch } : level)))
 
-  const takenBy = (index: number) =>
-    new Set(levels.flatMap((level, i) => (i === index ? [] : level.playerIds)))
+  /**
+   * Give a player to one level, taking them out of whichever level held them.
+   *
+   * A player belongs to exactly one level, so moving and adding are the same
+   * operation — which is what lets the picker offer someone already spoken for
+   * instead of hiding them and leaving the manager to hunt for the level they are in.
+   */
+  const assign = (playerId: PlayerId, targetIndex: number) =>
+    setLevels((prev) =>
+      prev.map((level, i) => {
+        if (i === targetIndex) {
+          return level.playerIds.includes(playerId)
+            ? level
+            : withPlayers(level, [...level.playerIds, playerId])
+        }
+        return level.playerIds.includes(playerId)
+          ? withPlayers(level, level.playerIds.filter((id) => id !== playerId))
+          : level
+      }),
+    )
 
-  const totalPlayers = levels.reduce((sum, level) => sum + level.playerIds.length, 0)
-  const problems = levels.map((level) => validateConfig(level.config, level.playerIds.length))
-  const canCreate = name.trim().length > 0 && totalPlayers > 0 && problems.every((p) => p === null)
+  /** Players held by another level, mapped to the name of the level holding them. */
+  const elsewhere = (index: number) =>
+    new Map(
+      levels.flatMap((level, i) =>
+        i === index ? [] : level.playerIds.map((id) => [id, level.name] as const),
+      ),
+    )
+
+  // A level nobody was put in is a level the manager added and thought better of, not
+  // a tournament that cannot be created: it is dropped rather than left holding the
+  // Create button down. It is not asked a format question either — there is no field
+  // to answer it about.
+  const staffed = levels.filter((level) => level.playerIds.length > 0)
+  const problems = staffed.map((level) => validateConfig(level.config, level.playerIds.length))
+  const canCreate = name.trim().length > 0 && staffed.length > 0 && problems.every((p) => p === null)
+
+  const stage = Math.min(step, 2)
+  const formatIndex = Math.min(Math.max(step - 2, 0), Math.max(staffed.length - 1, 0))
+  const formatLevel = staffed[formatIndex]
+  /** The step holding the last level's format — the one that offers Create. */
+  const lastStep = 2 + Math.max(staffed.length - 1, 0)
+
+  const picking = levels[activeLevel]
+  const recommended = suggestedConfig(formatLevel?.playerIds.length ?? 0).format
 
   const create = async () => {
-    const usedIds = new Set(levels.flatMap((l) => l.playerIds))
-    const tournament: Tournament = {
-      id: newId(),
-      name: name.trim(),
-      date,
-      scoreMode,
-      tableCount,
-      // Slim copies: a tournament needs a name to print, not a roster photo. Keeping
-      // photos out here is what lets the whole thing fit in a share link.
-      players: roster.filter((p) => usedIds.has(p.id)).map(({ id, name }) => ({ id, name })),
-      levels: levels.map<Level>((level) => ({
-        id: level.key,
-        name: level.name,
-        playerIds: level.playerIds,
-        config: level.config,
-        bestOf: level.bestOf,
-        seed: generateSeed(),
-        withdrawn: [],
-      })),
-      results: {},
-      tableAssignments: {},
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
+    const tournament = buildTournament(
+      { name, date, scoreMode, tableCount, levels: staffed },
+      roster,
+    )
     await saveTournament(tournament)
     toast(t('feedback.tournamentCreated'))
     navigate({ name: 'run', id: tournament.id })
   }
 
-  const current = levels[activeLevel]
-  const recommended = useMemo(
-    () => suggestedConfig(current?.playerIds.length ?? 0).format,
-    [current?.playerIds.length],
-  )
+  const heading =
+    stage === 2 && formatLevel && staffed.length > 1
+      ? t('wizard.formatFor', { name: formatLevel.name })
+      : t(`wizard.${STAGES[stage]}`)
+
+  const subLine =
+    stage === 2 && staffed.length > 1
+      ? `${t('wizard.step', { current: 3, total: STAGES.length })} · ${t('wizard.levelStep', {
+          current: formatIndex + 1,
+          total: staffed.length,
+        })}`
+      : t('wizard.step', { current: stage + 1, total: STAGES.length })
+
+  // Walking past a level whose field cannot support the format it was given would
+  // leave the reason on a screen the manager has already left, so the walk stops on
+  // the level that has the problem.
+  const currentProblem = formatLevel
+    ? validateConfig(formatLevel.config, formatLevel.playerIds.length)
+    : null
+  const nextDisabled =
+    step === 0 ? !name.trim() : step === 1 ? staffed.length === 0 : currentProblem !== null
 
   return (
     <>
-      <PageTitle sub={t('wizard.step', { current: step + 1, total: STEPS.length })}>
-        {t(`wizard.${STEPS[step]}`)}
-      </PageTitle>
+      <PageTitle sub={subLine}>{heading}</PageTitle>
 
       {step === 0 ? (
         <Card className="space-y-4">
@@ -157,68 +261,85 @@ export function NewTournament() {
         </Card>
       ) : null}
 
-      {step > 0 ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {levels.map((level, i) => (
-            <Tooltip
-              key={level.key}
-              label={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
-            >
-              <Chip selected={i === activeLevel} onClick={() => setActiveLevel(i)}>
-                {level.name} · {level.playerIds.length}
-              </Chip>
-            </Tooltip>
-          ))}
-          <Tooltip label={t('wizard.addLevelHint')}>
-            <Button
-              variant="subtle"
-              size="sm"
-              onClick={() => {
-                setLevels((prev) => [...prev, emptyLevel(prev.length)])
-                setActiveLevel(levels.length)
-              }}
-            >
-              + {t('wizard.addLevel')}
-            </Button>
-          </Tooltip>
-          {levels.length > 1 ? (
-            <Tooltip label={t('wizard.removeLevelHint')}>
+      {/* Stage 2: the levels themselves — add one, drop one, fill each with players.
+          This is the only screen where a level comes into existence. */}
+      {step === 1 ? (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {levels.map((level, i) => (
+              <Tooltip
+                key={level.key}
+                label={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
+              >
+                <Chip selected={i === activeLevel} onClick={() => setActiveLevel(i)}>
+                  {level.name} · {level.playerIds.length}
+                </Chip>
+              </Tooltip>
+            ))}
+            <Tooltip label={t('wizard.addLevelHint')}>
               <Button
-                variant="ghost"
+                variant="subtle"
                 size="sm"
                 onClick={() => {
-                  setLevels((prev) => prev.filter((_, i) => i !== activeLevel))
-                  setActiveLevel(0)
+                  setLevels((prev) => [...prev, emptyLevel(prev.length, t)])
+                  setActiveLevel(levels.length)
                 }}
               >
-                ✕
+                + {t('wizard.addLevel')}
               </Button>
             </Tooltip>
+            {levels.length > 1 ? (
+              <Tooltip label={t('wizard.removeLevelHint')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setLevels((prev) => prev.filter((_, i) => i !== activeLevel))
+                    setActiveLevel(0)
+                  }}
+                >
+                  ✕
+                </Button>
+              </Tooltip>
+            ) : null}
+          </div>
+
+          {picking ? (
+            <Card>
+              <PlayerPicker
+                selected={picking.playerIds}
+                elsewhere={elsewhere(activeLevel)}
+                onChange={(ids) =>
+                  setLevels((prev) =>
+                    prev.map((level, i) => (i === activeLevel ? withPlayers(level, ids) : level)),
+                  )
+                }
+                onAssign={(id) => assign(id, activeLevel)}
+              />
+            </Card>
           ) : null}
-        </div>
+        </>
       ) : null}
 
-      {step === 1 && current ? (
-        <Card>
-          <PlayerPicker
-            selected={current.playerIds}
-            taken={takenBy(activeLevel)}
-            onChange={(ids) => patchLevel(activeLevel, { playerIds: ids })}
-            onAdd={(id) =>
-              setLevels((prev) =>
-                prev.map((level, i) =>
-                  i === activeLevel && !level.playerIds.includes(id)
-                    ? { ...level, playerIds: [...level.playerIds, id] }
-                    : level,
-                ),
-              )
-            }
-          />
-        </Card>
-      ) : null}
-
-      {step === 2 && current ? (
+      {/* Stage 3: one level per step. The chips say how far the walk has got and jump
+          back to a level already answered; they do not add or remove one. */}
+      {step >= 2 && formatLevel ? (
         <>
+          {staffed.length > 1 ? (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {staffed.map((level, i) => (
+                <Tooltip
+                  key={level.key}
+                  label={t('wizard.levelTab', { name: level.name, count: level.playerIds.length })}
+                >
+                  <Chip selected={i === formatIndex} onClick={() => goToStep(2 + i)}>
+                    {level.name} · {level.playerIds.length}
+                  </Chip>
+                </Tooltip>
+              ))}
+            </div>
+          ) : null}
+
           {/* Match length sits with the format because it is the other half of the
               same decision — best of 3 across 24 players is a different evening from
               best of 5 — and the duration advice below reacts to it. */}
@@ -230,8 +351,8 @@ export function NewTournament() {
               {([3, 5, 7] as const).map((value) => (
                 <Chip
                   key={value}
-                  selected={current.bestOf === value}
-                  onClick={() => patchLevel(activeLevel, { bestOf: value })}
+                  selected={formatLevel.bestOf === value}
+                  onClick={() => patchLevel(formatLevel.key, { bestOf: value })}
                 >
                   {t('wizard.bestOfValue', { count: value })}
                 </Chip>
@@ -242,12 +363,12 @@ export function NewTournament() {
             </p>
           </div>
           <FormatPicker
-            value={current.config}
-            playerCount={current.playerIds.length}
-            bestOf={current.bestOf}
+            value={formatLevel.config}
+            playerCount={formatLevel.playerIds.length}
+            bestOf={formatLevel.bestOf}
             tableCount={tableCount}
             recommended={recommended}
-            onChange={(config) => patchLevel(activeLevel, { config })}
+            onChange={(config) => patchLevel(formatLevel.key, { config, formatChosen: true })}
           />
         </>
       ) : null}
@@ -260,11 +381,8 @@ export function NewTournament() {
           {step === 0 ? t('common.cancel') : t('common.previous')}
         </Button>
         <div className="flex-1" />
-        {step < STEPS.length - 1 ? (
-          <Button
-            onClick={() => goToStep(step + 1)}
-            disabled={step === 0 ? !name.trim() : totalPlayers === 0}
-          >
+        {step < lastStep ? (
+          <Button onClick={() => goToStep(step + 1)} disabled={nextDisabled}>
             {t('common.next')}
           </Button>
         ) : (
