@@ -1,15 +1,29 @@
 @import 'tailwindcss';
 
+/*
+ * Dark mode is a choice, not only a system setting, so the `dark:` variant keys off
+ * `<html data-theme="dark">` instead of Tailwind's default prefers-color-scheme.
+ * The attribute always holds the *resolved* theme — index.html's inline script
+ * collapses a 'system' preference into light or dark before the first paint — so
+ * every rule below, and every `dark:` class in the app, has one thing to check.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
   --font-sans: 'Heebo', ui-sans-serif, system-ui, sans-serif;
 
+  /* Keep this ramp complete. Tailwind silently drops a utility whose colour is not
+     defined, so a gap here does not fail a build — it just leaves dark mode wearing
+     the light-mode ring, divider or text it was supposed to override. */
   --color-court-50: oklch(0.97 0.02 240);
   --color-court-100: oklch(0.93 0.04 240);
   --color-court-200: oklch(0.86 0.07 240);
+  --color-court-300: oklch(0.77 0.11 242);
   --color-court-400: oklch(0.68 0.15 245);
   --color-court-500: oklch(0.6 0.18 250);
   --color-court-600: oklch(0.52 0.19 252);
   --color-court-700: oklch(0.44 0.17 254);
+  --color-court-800: oklch(0.35 0.13 255);
   --color-court-900: oklch(0.28 0.09 256);
   --color-court-950: oklch(0.2 0.06 258);
 
@@ -19,6 +33,8 @@
 }
 
 :root {
+  /* Overwritten with the resolved theme by the inline script; this is the fallback
+     for the moment before it runs, and for a browser with scripting off. */
   color-scheme: light dark;
   /* Everything in Tailwind is rem-based, so this scales the whole app at once.
      Hebrew benefits from a little extra size — its letterforms have no ascenders
@@ -41,11 +57,9 @@ body {
   line-height: 1.6;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background: var(--color-court-950);
-    color: var(--color-court-50);
-  }
+[data-theme='dark'] body {
+  background: var(--color-court-950);
+  color: var(--color-court-50);
 }
 
 /*
@@ -96,11 +110,9 @@ body {
     mask-size: 620px 620px;
   }
 
-  @media (prefers-color-scheme: dark) {
-    body::before {
-      background-color: var(--color-court-400);
-      opacity: 0.09;
-    }
+  [data-theme='dark'] body::before {
+    background-color: var(--color-court-400);
+    opacity: 0.09;
   }
 }
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { decodeTournament } from '../share/payload'
+import { planAdoption } from '../share/adopt'
 import { resolveLevel } from '../engine/resolve'
 import { tally } from '../engine/result'
 import type { PlayerId } from '../engine/types'
@@ -17,12 +18,28 @@ import { navigate } from '../router'
  * Nothing is fetched and nothing is written: the payload decodes into the same
  * Tournament the engine works on everywhere else, and every table below is
  * recomputed here rather than travelling in the URL. Read-only on purpose — the
- * recipient is looking at somebody else's night, and can take a copy explicitly.
+ * recipient is looking at somebody else's night, until they say otherwise.
+ *
+ * Saying otherwise is the second job of this screen: the club's tournaments do not
+ * all get run on the same device, and this is where a night run on the spare tablet
+ * joins the manager's real history.
  */
 export function ViewShared({ payload }: { payload: string }) {
   const { t, i18n } = useTranslation()
-  const saveTournament = useAppStore((s) => s.saveTournament)
+  const roster = useAppStore((s) => s.roster)
+  const tournaments = useAppStore((s) => s.tournaments)
+  const adoptTournament = useAppStore((s) => s.adoptTournament)
+  const restoreTournament = useAppStore((s) => s.restoreTournament)
   const tournament = useMemo(() => decodeTournament(payload), [payload])
+  /**
+   * Worked out before the button is pressed rather than after, because what adding is
+   * about to do — recognise five of these people, add three, replace the copy already
+   * here — is exactly what the manager needs to know while deciding.
+   */
+  const plan = useMemo(
+    () => (tournament ? planAdoption(tournament, roster, tournaments) : null),
+    [tournament, roster, tournaments],
+  )
 
   if (!tournament) {
     return (
@@ -36,12 +53,26 @@ export function ViewShared({ payload }: { payload: string }) {
   const dateFormat = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' })
   const nameOf = (id: PlayerId) => tournament.players.find((p) => p.id === id)?.name ?? id
 
-  const saveCopy = async () => {
-    // The id is kept, so opening the same link twice updates the copy instead of
-    // filling the list with duplicates of one night.
-    await saveTournament(tournament)
-    toast(t('share.saveCopyDone'))
-    navigate({ name: 'run', id: tournament.id })
+  const adopt = async () => {
+    if (!plan) return
+    // The id travels with the tournament, so opening the same link twice updates the
+    // one copy instead of filling the list with duplicates of one night.
+    const previous = await adoptTournament(plan)
+    toast(
+      previous ? t('share.adoptReplaced') : t('share.adoptDone'),
+      'success',
+      // Only the replacing case destroys anything, and only that case has something
+      // to put back.
+      previous
+        ? {
+            label: t('feedback.undo'),
+            run: () => {
+              void restoreTournament(previous).then(() => toast(t('share.adoptUndone'), 'info'))
+            },
+          }
+        : undefined,
+    )
+    navigate({ name: 'run', id: plan.tournament.id })
   }
 
   return (
@@ -50,15 +81,32 @@ export function ViewShared({ payload }: { payload: string }) {
         <Button variant="ghost" size="sm" onClick={() => navigate({ name: 'home' })}>
           ← {t('nav.home')}
         </Button>
-        <div className="flex-1" />
-        <Button variant="subtle" size="sm" onClick={() => void saveCopy()}>
-          ⬇ {t('share.saveCopy')}
-        </Button>
       </div>
 
       <PageTitle sub={`${t('share.viewHint')} · ${dateFormat.format(new Date(tournament.date))}`}>
         {tournament.name}
       </PageTitle>
+
+      {plan ? (
+        <Card className="no-print mb-6 space-y-3">
+          <div>
+            <h2 className="text-lg font-bold">{t('share.adoptTitle')}</h2>
+            <p className="mt-1 text-court-600 dark:text-court-200">{t('share.adoptHint')}</p>
+          </div>
+          <ul className="space-y-1 text-sm text-court-600 dark:text-court-200">
+            {plan.matched > 0 ? (
+              <li>✓ {t('share.adoptMatched', { count: plan.matched })}</li>
+            ) : null}
+            {plan.newPlayers.length > 0 ? (
+              <li>+ {t('share.adoptNew', { count: plan.newPlayers.length })}</li>
+            ) : null}
+            {plan.replaces ? (
+              <li className="font-medium text-ball-600">⚠ {t('share.adoptReplaces')}</li>
+            ) : null}
+          </ul>
+          <Button onClick={() => void adopt()}>⬇ {t('share.adopt')}</Button>
+        </Card>
+      ) : null}
 
       {tournament.levels.map((level) => {
         const view = resolveLevel(level, tournament.results, tournament.scoreMode)

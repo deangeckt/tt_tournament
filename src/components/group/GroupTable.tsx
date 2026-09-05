@@ -19,6 +19,10 @@ export function GroupTable({
 }) {
   const { t } = useTranslation()
 
+  // The hint below is the one thing in this table the user can act on, so it is not
+  // left in a hover-only tooltip: on a phone at the club nobody has a pointer.
+  const pointsUnavailable = rows.some((r) => r.tiebreakReason === 'lotPointsUnavailable')
+
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800">
       <div className="border-b border-court-100 px-4 py-3 text-lg font-bold dark:border-court-800">
@@ -91,6 +95,11 @@ export function GroupTable({
           </tbody>
         </table>
       </div>
+      {pointsUnavailable ? (
+        <p className="border-t border-court-100 bg-court-50 px-4 py-3 text-sm text-court-600 dark:border-court-800 dark:bg-court-800/50 dark:text-court-200">
+          {t('tiebreak.pointsHint')}
+        </p>
+      ) : null}
     </div>
   )
 }

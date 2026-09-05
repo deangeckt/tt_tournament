@@ -11,13 +11,25 @@
     <meta name="description" content="ניהול טורנירי טניס שולחן — הגרלה, תוצאות וטבלאות" />
     <title>ניהול תחרויות טניס שולחן</title>
     <script>
-      // Set direction before the bundle loads. Without this the page paints LTR for
-      // a moment on every load, which reads as a broken layout in Hebrew.
+      // Set direction and theme before the bundle loads. Without this the page paints
+      // LTR for a moment on every load, which reads as a broken layout in Hebrew, and
+      // flashes the wrong theme — a white page in a dark room.
       try {
         var l = localStorage.getItem('tt.locale');
         if (l !== 'he' && l !== 'en') l = 'he';
         document.documentElement.lang = l;
         document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
+      } catch (e) {}
+      try {
+        // Only the *resolved* theme is stamped, so CSS has one thing to look at.
+        var p = localStorage.getItem('tt.theme');
+        if (p !== 'light' && p !== 'dark') p = 'system';
+        var d =
+          p === 'system'
+            ? window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches
+            : p === 'dark';
+        document.documentElement.dataset.theme = d ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = d ? 'dark' : 'light';
       } catch (e) {}
     </script>
   </head>

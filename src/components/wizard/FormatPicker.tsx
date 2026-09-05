@@ -41,27 +41,34 @@ export function FormatPicker({
         const config = selected ? value : defaultConfigFor(format, playerCount)
         const shape = describe(config, playerCount, bestOf, tableCount)
         const problem = validateConfig(config, playerCount)
+        // Too small a field for this format at all — not a choice the user can make
+        // yet, so lock the card rather than let them select an undrawable level.
+        const locked = playerCount < minimumPlayers(format)
         const hours = shape.estimatedMinutes / 60
 
         return (
           <div key={format}>
             <button
               type="button"
+              disabled={locked}
               onClick={() => onChange(defaultConfigFor(format, playerCount))}
               aria-pressed={selected}
-              className={`flex w-full items-stretch gap-3 rounded-2xl p-3 text-start transition-all duration-150 active:scale-[0.99] ${
-                selected
-                  ? 'bg-court-600/10 ring-2 ring-court-500 dark:bg-court-500/15'
-                  : 'bg-white ring-1 ring-court-100 hover:-translate-y-px hover:bg-court-50 hover:ring-court-400 hover:shadow-md dark:bg-court-900 dark:ring-court-800 dark:hover:bg-court-800'
+              className={`flex w-full items-stretch gap-3 rounded-2xl p-3 text-start transition-all duration-150 ${
+                locked
+                  ? 'cursor-not-allowed bg-white opacity-55 ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800'
+                  : selected
+                    ? 'bg-court-600/10 ring-2 ring-court-500 active:scale-[0.99] dark:bg-court-500/15'
+                    : 'bg-white ring-1 ring-court-100 hover:-translate-y-px hover:bg-court-50 hover:ring-court-400 hover:shadow-md active:scale-[0.99] dark:bg-court-900 dark:ring-court-800 dark:hover:bg-court-800'
               }`}
             >
-              <div className="h-20 w-20 shrink-0 self-center sm:w-24">
+              <div className={`h-20 w-20 shrink-0 self-center sm:w-24 ${locked ? 'grayscale' : ''}`}>
                 <FormatDiagram format={format} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{t(`format.${format}`)}</span>
-                  {format === recommended ? (
+                  {locked ? <LockIcon /> : null}
+                  {!locked && format === recommended ? (
                     <span className="rounded-full bg-ball-500/20 px-2 py-0.5 text-xs font-medium text-ball-600">
                       ★
                     </span>
@@ -72,7 +79,13 @@ export function FormatPicker({
                 </p>
 
                 {problem ? (
-                  <p className="mt-2 text-sm font-medium text-red-600">
+                  // Locked is a requirement, not a mistake: red is reserved for a
+                  // configuration the user actually chose and has to fix.
+                  <p
+                    className={`mt-2 text-sm font-medium ${
+                      locked ? 'text-court-600 dark:text-court-200' : 'text-red-600'
+                    }`}
+                  >
                     {t('format.tooFew', { count: Math.max(problem.needed, minimumPlayers(format)) })}
                   </p>
                 ) : (
@@ -87,13 +100,35 @@ export function FormatPicker({
               </div>
             </button>
 
-            {selected && config.format === 'groupsKnockout' ? (
+            {selected && !locked && config.format === 'groupsKnockout' ? (
               <GroupOptions config={config} playerCount={playerCount} onChange={onChange} />
             ) : null}
           </div>
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Marks a format the current field is too small to run. Decorative only — the card
+ * spells the requirement out in words beside it, since a glyph is not a reason.
+ */
+function LockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 text-court-500 dark:text-court-300"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
   )
 }
 

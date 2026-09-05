@@ -23,16 +23,51 @@ export function ShareSheet({
   const [qr, setQr] = useState<{ url: string; data: string } | null>(null)
   /** Also carries its long url: a roster edit invalidates the short link. */
   const [short, setShort] = useState<{ long: string; url: string } | null>(null)
-  const [shortening, setShortening] = useState(false)
+  /** The long url a shortener already failed on, so the effect stops retrying it. */
+  const [failed, setFailed] = useState<string | null>(null)
 
   const longUrl = useMemo(() => (open ? shareUrl(tournament) : ''), [open, tournament])
   const tooLong = longUrl.length > SAFE_URL_LENGTH
   const shortUrl = short?.long === longUrl ? short.url : null
-  // Everything downstream — clipboard, QR, WhatsApp — uses whichever link is current,
-  // so shortening is one decision rather than four.
+  const canShorten = !tooLong && longUrl.length <= SHORTENABLE_URL_LENGTH
+  /**
+   * A request is in flight exactly when a link can be shortened and neither answer has
+   * arrived yet — which is a fact about the other three values, not a fourth thing to
+   * keep in step with them. It is also what triggers the effect below, so the spinner
+   * and the request can never disagree.
+   */
+  const shortening = open && canShorten && !shortUrl && failed !== longUrl
+  // Everything downstream — clipboard, QR, WhatsApp — uses the one link there is. The
+  // long url is a fallback, not a choice: it appears only when no shortener answered
+  // or the tournament is too large for one.
   const url = shortUrl ?? longUrl
   const summary = useMemo(() => (open ? summaryText(tournament, t) : ''), [open, tournament, t])
   const message = tooLong ? summary : `${summary}\n\n${url}`
+
+  /**
+   * Shorten as soon as the sheet opens.
+   *
+   * This is the one place data leaves the device, and it is no longer something the
+   * user asks for per link — so it has to be said plainly rather than buried: the note
+   * under the link says the tournament is uploaded to an outside service. The fragment
+   * still keeps it away from *our* server, and `shortenUrl` caches, so re-opening the
+   * sheet costs nothing and the code someone already printed keeps matching what is on
+   * screen.
+   */
+  useEffect(() => {
+    if (!shortening) return
+    let live = true
+    void shortenUrl(longUrl).then((result) => {
+      if (!live) return
+      if (result) setShort({ long: longUrl, url: result })
+      // Remembered rather than toasted: a shortener being down is not worth an alert
+      // on a sheet the user only opened to read a link, and the note under it says so.
+      else setFailed(longUrl)
+    })
+    return () => {
+      live = false
+    }
+  }, [shortening, longUrl])
 
   useEffect(() => {
     if (!open || tooLong) return
@@ -61,22 +96,6 @@ export function ShareSheet({
     }
   }
 
-  const shorten = async () => {
-    if (longUrl.length > SHORTENABLE_URL_LENGTH) {
-      toast(t('share.shortenTooLong'), 'warn')
-      return
-    }
-    setShortening(true)
-    const result = await shortenUrl(longUrl)
-    setShortening(false)
-    if (!result) {
-      toast(t('share.shortenFailed'), 'warn')
-      return
-    }
-    setShort({ long: longUrl, url: result })
-    toast(t('share.shortened'))
-  }
-
   const print = () => {
     onClose()
     // Let the sheet finish sliding away, or it lands in the printout.
@@ -102,26 +121,24 @@ export function ShareSheet({
                 <Button size="sm" onClick={() => void copy()}>
                   🔗 {t('share.copyLink')}
                 </Button>
-                {shortUrl ? (
-                  <Button variant="subtle" size="sm" onClick={() => setShort(null)}>
-                    {t('share.showLong')}
+                {/* The only thing to press about shortening: try the services again
+                    after one of them was down. Clearing the failure restarts the
+                    effect. */}
+                {canShorten && failed === longUrl ? (
+                  <Button variant="subtle" size="sm" onClick={() => setFailed(null)}>
+                    ✂️ {t('share.shorten')}
                   </Button>
-                ) : (
-                  <Button
-                    variant="subtle"
-                    size="sm"
-                    disabled={shortening}
-                    onClick={() => void shorten()}
-                  >
-                    ✂️ {shortening ? t('share.shortening') : t('share.shorten')}
-                  </Button>
-                )}
+                ) : null}
               </div>
-              {shortUrl ? null : (
-                <p className="text-xs text-court-500 dark:text-court-300">
-                  {t('share.shortenHint')}
-                </p>
-              )}
+              <p className="text-xs text-court-500 dark:text-court-300">
+                {shortening
+                  ? t('share.shortening')
+                  : shortUrl
+                    ? t('share.shortHint')
+                    : canShorten
+                      ? t('share.shortenFailed')
+                      : t('share.shortenTooLong')}
+              </p>
             </>
           )}
         </section>

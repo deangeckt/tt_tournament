@@ -2,8 +2,20 @@ import type { BestOf, Match, MatchId, PlayerId, ScoreMode, StoredResult } from '
 import { tally, type ResultTally } from './result'
 import { rngFromSeed, shuffle } from './rng'
 
-/** Which criterion separated a player from those they were tied with. */
-export type TiebreakReason = 'headToHead' | 'gameRatio' | 'pointRatio' | 'lot'
+/**
+ * Which criterion separated a player from those they were tied with.
+ *
+ * `lot` and `lotPointsUnavailable` are the same outcome with different causes, and
+ * the difference is the only one the user can act on: the first is a genuine dead
+ * heat on every criterion the rules offer, the second fell to lots only because a
+ * quick-entry result carries no per-game points, so point ratio never ran.
+ */
+export type TiebreakReason =
+  | 'headToHead'
+  | 'gameRatio'
+  | 'pointRatio'
+  | 'lot'
+  | 'lotPointsUnavailable'
 
 export interface StandingRow {
   playerId: PlayerId
@@ -36,6 +48,12 @@ interface PlayedMatch {
   a: PlayerId
   b: PlayerId
   t: ResultTally
+  /**
+   * A quick-entry result: it records games but no points, and — unlike a walkover,
+   * which has no points to record at all — re-entering it in detailed mode would
+   * supply them. That is what makes a lot reached here worth reporting.
+   */
+  upgradable: boolean
 }
 
 /** ITTF match points: 2 for a win, 1 for a loss played out, 0 for a forfeit. */
@@ -71,7 +89,12 @@ function collectPlayed(input: StandingsInput): PlayedMatch[] {
     const a = match.a.playerId
     const b = match.b.playerId
     if (excluded.has(a) || excluded.has(b)) continue
-    played.push({ a, b, t: tally(stored.result, input.bestOf) })
+    played.push({
+      a,
+      b,
+      t: tally(stored.result, input.bestOf),
+      upgradable: stored.result.kind === 'quick',
+    })
   }
   return played
 }
@@ -218,10 +241,12 @@ function resolveTier(
   // roster quietly change who finishes higher.
   const sorted = candidates.slice().sort()
   const lotSeed = `${input.seed}:lot:${sorted.join(',')}`
-  return shuffle(sorted, rngFromSeed(lotSeed)).map((playerId) => ({
-    playerId,
-    reason: 'lot' as const,
-  }))
+  // Separate the two ways a lot is reached. Point ratio is skipped whenever any
+  // mutual match lacks points, but only a quick-entry one can still be given them,
+  // so the actionable reason is reserved for a tie the user could break themselves.
+  const reason: TiebreakReason =
+    !pointsUsable && mini.some((m) => m.upgradable) ? 'lotPointsUnavailable' : 'lot'
+  return shuffle(sorted, rngFromSeed(lotSeed)).map((playerId) => ({ playerId, reason }))
 }
 
 export function computeStandings(input: StandingsInput): StandingRow[] {

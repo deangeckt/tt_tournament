@@ -11,6 +11,8 @@ import {
   type ImportMode,
 } from '../store/backup'
 import { applyLocale, type Locale } from '../i18n'
+import { useTheme } from '../store/useTheme'
+import { THEMES, type ThemePref } from '../store/theme'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
 import { toast } from '../store/useToasts'
@@ -31,6 +33,8 @@ export function Settings() {
   const load = useAppStore((s) => s.load)
   const fileInput = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<ImportMode>('merge')
+  const themePref = useTheme((s) => s.pref)
+  const setThemePref = useTheme((s) => s.setPref)
 
   const backupText = () => JSON.stringify(buildBackup(roster, tournaments), null, 2)
 
@@ -64,6 +68,17 @@ export function Settings() {
     const imported = await importBackup(backup, mode)
     await load()
     toast(t('settings.importDone', { summary: counts(imported.tournaments, imported.players) }))
+  }
+
+  const THEME_LABELS: Record<ThemePref, string> = {
+    system: t('settings.themeSystem'),
+    light: t('settings.themeLight'),
+    dark: t('settings.themeDark'),
+  }
+
+  const switchTheme = (pref: ThemePref) => {
+    setThemePref(pref)
+    toast(t('feedback.themeChanged'), 'info')
   }
 
   const switchTo = (locale: Locale) => {
@@ -144,6 +159,20 @@ export function Settings() {
           <Chip selected={i18n.language === 'en'} onClick={() => switchTo('en')}>
             English
           </Chip>
+        </div>
+      </Card>
+
+      <Card className="mb-4 space-y-2">
+        <h2 className="text-lg font-bold">{t('settings.themeTitle')}</h2>
+        <div className="flex flex-wrap gap-2">
+          {THEMES.map((pref) => (
+            <Chip key={pref} selected={themePref === pref} onClick={() => switchTheme(pref)}>
+              <span aria-hidden="true" className="me-1.5">
+                {pref === 'system' ? '🖥' : pref === 'light' ? '☀' : '🌙'}
+              </span>
+              {THEME_LABELS[pref]}
+            </Chip>
+          ))}
         </div>
       </Card>
 

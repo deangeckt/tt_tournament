@@ -78,7 +78,7 @@ export function Roster() {
                     pointing whichever way "forward" happens to be. */}
                 <span
                   aria-hidden="true"
-                  className="text-court-300 rtl:-scale-x-100 dark:text-court-600"
+                  className="text-court-500 rtl:-scale-x-100 dark:text-court-300"
                 >
                   ›
                 </span>

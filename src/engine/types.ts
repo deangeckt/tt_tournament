@@ -111,7 +111,7 @@ export type FormatName = FormatConfig['format']
 
 export interface Level {
   id: LevelId
-  /** Display name, e.g. "רמה א׳". */
+  /** Display name, e.g. "דרג א׳". */
   name: string
   playerIds: PlayerId[]
   config: FormatConfig

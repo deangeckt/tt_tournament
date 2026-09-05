@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Level, LevelId, MatchId, MatchResult, Player, PlayerId, Tournament } from '../engine/types'
 import { buildFixtures } from '../engine/resolve'
 import { generateSeed } from '../engine/rng'
+import type { AdoptPlan } from '../share/adopt'
 import {
   deleteRosterPlayer,
   deleteTournament,
@@ -26,8 +27,14 @@ interface AppState {
   openTournament: (id: string) => Promise<void>
   saveTournament: (tournament: Tournament) => Promise<void>
   removeTournament: (id: string) => Promise<void>
-  /** Put a deleted tournament back exactly as it was, for the delete toast's undo. */
+  /** Put a tournament back exactly as it was, for the delete and adopt toasts' undo. */
   restoreTournament: (tournament: Tournament) => Promise<void>
+  /**
+   * Take a shared tournament into this device's database, roster and all.
+   *
+   * Returns the copy it replaced, if there was one, so the toast can offer it back.
+   */
+  adoptTournament: (plan: AdoptPlan) => Promise<Tournament | undefined>
 
   addRosterPlayer: (name: string) => Promise<Player | undefined>
   removeRosterPlayer: (id: string) => Promise<void>
@@ -83,7 +90,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     // restored tournament to the top of a list ordered by recency. Undo should leave
     // no trace.
     await putTournament(tournament)
-    set({ tournaments: await listTournaments() })
+    const current = get().current?.id === tournament.id ? tournament : get().current
+    set({ current, tournaments: await listTournaments() })
+  },
+
+  async adoptTournament(plan) {
+    // Read before writing: this is the copy undo puts back when the manager was
+    // replacing a tournament they had already started here.
+    const previous = plan.replaces ? await getTournament(plan.tournament.id) : undefined
+    for (const player of plan.newPlayers) await putRosterPlayer(player)
+    // Stamped, unlike a restore: it really did just arrive on this device, and
+    // belongs at the top of a list ordered by recency.
+    await get().saveTournament(plan.tournament)
+    set({ roster: await listRoster() })
+    return previous
   },
 
   async addRosterPlayer(name) {

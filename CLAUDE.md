@@ -129,11 +129,42 @@ The first two never touch a server; the third does, and says so:
 - **`src/share/shorten.ts`** — the one place data leaves the device without the user
   carrying it. A share url holds the whole tournament in its fragment, so shortening it
   means uploading that tournament to someone else's server: the exact property the
-  fragment was chosen to protect. It is therefore never automatic — the user asks per
-  link, and the sheet says plainly what it costs. Providers are tried in order because
-  none promises uptime, and the only selection criterion is a permissive CORS header;
-  that alone rules out is.gd, tinyurl and cleanuri, which work from a server and fail
-  from a page with an unhelpful generic network error.
+  fragment was chosen to protect. It happens anyway, on open and without asking,
+  because a link carrying a whole night is thousands of characters and that is unusable
+  in the places these links actually go — a WhatsApp group, a printed sheet, a QR code
+  someone reads off a screen. So there is no long/short choice to make and no button to
+  press: the sheet shortens, and the note under the link says plainly that a copy went
+  to an outside service. The long url is a **fallback**, not an option — it appears only
+  when no shortener answered (with a "try again") or when the tournament is too large to
+  shorten, and the note says which of those happened. Providers are tried in order
+  because none promises uptime, and the only selection criterion is a permissive CORS
+  header; that alone rules out is.gd, tinyurl and cleanuri, which work from a server and
+  fail from a page with an unhelpful generic network error.
+
+### Getting data back in
+
+A club's nights are not all run on the same device — the tablet was charged, the phone
+was not — and they all have to end up in one history. **`src/share/adopt.ts`** is the
+way back: the read-only `ViewShared` screen offers to add the tournament it is showing
+to this device.
+
+What a link cannot carry is *this* device's idea of who its players are. Player ids are
+minted per device, so the same person entered twice is two uuids, and a career record
+keyed by id would be two half-records for one player. `planAdoption` therefore rewrites
+the incoming tournament against the local roster — recognised by id, else by name
+(case- and whitespace-insensitive, and no fuzzier than that) — and everyone else joins
+the roster under the id they arrived with. A local player stands in for at most one
+incoming player, so two people who share a name never collapse into one.
+
+Rewriting ids is only safe because nothing derived depends on their *value*: the draw is
+a seeded shuffle of `playerIds` and match ids come from level/stage/round/order, so a
+1:1 rename preserves every match id — which is exactly what keeps the stored results
+attached to their matches and out of the `stale` list. That is worth a test if this ever
+changes; there is one.
+
+The plan is computed before the button is pressed, not after, because "5 recognised, 3
+added, replaces the copy already here" is what the manager needs while deciding. Only
+the replacing case destroys anything, so only that case offers an undo.
 
 ### The tiebreak chain
 
@@ -155,6 +186,20 @@ The lot sorts both its seed input and the shuffled array, so a drawn tie depends
 on *who* is tied, not the order they happen to be listed in.
 
 ## Conventions
+
+**Theming.** Dark mode is a *choice*, not only a system setting: the resolved theme
+lives in `<html data-theme>` and Tailwind's `dark:` variant is redefined against it
+(`@custom-variant` in `index.css`), so there is no second source of truth to keep in
+step. `store/theme.ts` keeps the *preference* (`system | light | dark`) apart from the
+*resolved* value, and only the resolved one ever reaches CSS. An inline script in
+`index.html` stamps it before the bundle loads, for the same reason the `dir` script is
+there: otherwise every load flashes the wrong theme for a frame.
+
+Keep the `--color-court-*` ramp complete. Tailwind silently **drops** a utility whose
+colour is undefined, so a gap in the ramp is not a build error — it just leaves the
+`dark:` classes that name it doing nothing, and dark mode wears the light-mode ring,
+divider or text underneath. That is exactly what kept white edges on cards and made
+several labels vanish before `300` and `800` were added.
 
 **RTL.** Never use `left`/`right`/`ml-`/`mr-`/`text-left`. Use Tailwind's logical
 utilities (`ms-`/`me-`, `ps-`/`pe-`, `text-start`/`text-end`, `border-s`/`border-e`) so
@@ -215,6 +260,15 @@ levels is what takes the shipped tile to 23KB. Quantise to the *nearest* bucket,
 a bucket centre — an offset that lifts pure white off zero lays a faint wash over the
 whole viewport, which is easy to miss and impossible to unsee.
 
+**Logo.** The club emblem arrived as navy ink on white paper, which is the awkward
+case: masking it to a single colour the way the wallpaper is masked would throw away
+the flag's blue, and dropping the paper for transparency would leave the ink invisible
+on a dark header. So the paper stays and the *square* goes — `scripts/make-logo.mjs`
+cuts `logo.jpg` on the emblem's own ring (measured, not assumed: the artwork is a
+couple of pixels off centre) and flattens the paper to pure white, giving a disc that
+reads as a badge in both themes. `src/assets/logo.jpg` is the unshipped master, same
+arrangement as `doodle.webp`; regenerate rather than hand-edit.
+
 **Editing.** Because the engine re-derives from source, almost everything is safe to
 change mid-tournament. Only two operations are guarded: re-drawing (discards that
 level's results) and removing a player who has already played (offer withdrawal
@@ -225,14 +279,15 @@ instead).
 Working: the engine, the setup wizard with the illustrated format picker and duration
 advice, saved roster, seeded draw, hand-editable draw, quick/detailed score entry, live
 ITTF standings, round robin, single elimination, groups→knockout, multiple levels,
-in-tournament editing, withdrawals, deleting a tournament (confirmed, with undo),
+in-tournament editing, withdrawals, light/dark/system theme, deleting a tournament (confirmed, with undo),
 Hebrew/English RTL, player profiles (photo, career record, tournament history), share
-links + QR + print/PDF, opt-in link shortening, JSON export/import from the settings
-screen, and the doodle wallpaper.
+links + QR + print/PDF, always-shortened share links, adopting a shared tournament into
+this device's own history, JSON export/import from the settings screen, and the doodle
+wallpaper.
 
-Two things moved and are easy to look for in the wrong place: the **language toggle**
-lives on the settings screen, not the header, and the **draw seed** is in the edit
-sheet next to redraw and the manual draw, not on the tournament page.
+Two things moved and are easy to look for in the wrong place: the **language and theme
+toggles** live on the settings screen, not the header, and the **draw seed** is in the
+edit sheet next to redraw and the manual draw, not on the tournament page.
 
 Not built yet:
 

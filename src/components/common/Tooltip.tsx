@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 
 /**
  * A hover/focus tooltip for desktop.
@@ -8,6 +8,13 @@ import { useId, useState, type ReactNode } from 'react'
  * later, or — where a parent had its own `title` — something else entirely. Which
  * one appeared depended on how long the pointer rested, so the same X button looked
  * like three different controls. One bubble, always.
+ *
+ * Hover here means a real pointer. A touch device synthesises `mouseenter` on the
+ * first tap, and a control that changes the DOM from that handler has the click that
+ * would have followed swallowed by the browser — so the bubble appeared and the button
+ * did nothing until tapped a second time. Pointer events carry the device that caused
+ * them, so the bubble simply never opens for touch. Focus is gated the same way, on
+ * `:focus-visible`, so a tap that leaves a button focused does not raise it either.
  *
  * The label stays in the accessibility tree whether or not the bubble is up: it is
  * rendered into a visually hidden node that the trigger points at with
@@ -31,9 +38,16 @@ export function Tooltip({
       className="relative inline-flex"
       // The handlers sit on the wrapper rather than the child so a disabled control
       // — which Tailwind gives `pointer-events: none` — still explains itself.
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
+      onPointerEnter={(e: ReactPointerEvent) => {
+        if (e.pointerType === 'mouse') setOpen(true)
+      }}
+      onPointerLeave={() => setOpen(false)}
+      // A press dismisses the bubble rather than leaving it hanging over whatever the
+      // click just opened.
+      onPointerDown={() => setOpen(false)}
+      onFocus={(e) => {
+        if (e.target instanceof Element && e.target.matches(':focus-visible')) setOpen(true)
+      }}
       onBlur={() => setOpen(false)}
     >
       <span aria-describedby={id} className="inline-flex">

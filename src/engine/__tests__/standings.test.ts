@@ -205,9 +205,43 @@ describe('standings — tiebreaks', () => {
       ['C', 'A'],
     ]
     // Symmetric cycle: match points and game ratio are all identical, so the only
-    // thing left is point ratio — unavailable in quick mode, so this must go to lot.
+    // thing left is point ratio — unavailable in quick mode, so this must go to lot,
+    // and the lot must say it was the missing scores that got it there.
     const { rows } = run(['A', 'B', 'C'], pairs, [quick(3, 1), quick(3, 1), quick(3, 1)], {
       scoreMode: 'quick',
+    })
+    expect(rows.every((r) => r.tiebreakReason === 'lotPointsUnavailable')).toBe(true)
+  })
+
+  it('reports a plain lot when detailed scores are in and still inseparable', () => {
+    const pairs: Array<[PlayerId, PlayerId]> = [
+      ['A', 'B'],
+      ['B', 'C'],
+      ['C', 'A'],
+    ]
+    // Identical 3-1 scorelines all round: point ratio ran and could not split them,
+    // so there is nothing left for the user to enter.
+    const games: Array<[number, number]> = [
+      [11, 9],
+      [11, 9],
+      [9, 11],
+      [11, 9],
+    ]
+    const { rows } = run(['A', 'B', 'C'], pairs, [detailed(games), detailed(games), detailed(games)])
+    expect(rows.every((r) => r.tiebreakReason === 'lot')).toBe(true)
+  })
+
+  it('does not blame missing scores when the tied matches were walkovers', () => {
+    const pairs: Array<[PlayerId, PlayerId]> = [
+      ['A', 'B'],
+      ['B', 'C'],
+      ['C', 'A'],
+    ]
+    // A walkover has no points to enter, so re-entering it in detailed mode would
+    // change nothing — this is a plain lot, not an actionable one.
+    const wo = (winner: 'a' | 'b'): MatchResult => ({ kind: 'walkover', winner })
+    const { rows } = run(['A', 'B', 'C'], pairs, [wo('a'), wo('a'), wo('a')], {
+      scoreMode: 'detailed',
     })
     expect(rows.every((r) => r.tiebreakReason === 'lot')).toBe(true)
   })
@@ -241,7 +275,7 @@ describe('standings — tiebreaks', () => {
     const c = run(['A', 'B', 'C'], pairs, results, { scoreMode: 'quick', seed: 'S2' })
 
     expect(a.order).toEqual(b.order)
-    expect(a.rows.every((r) => r.tiebreakReason === 'lot')).toBe(true)
+    expect(a.rows.every((r) => r.tiebreakReason === 'lotPointsUnavailable')).toBe(true)
     // A different seed is free to produce a different lot; the set is unchanged.
     expect(c.order.slice().sort()).toEqual(['A', 'B', 'C'])
   })

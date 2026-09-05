@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { navigate } from '../router'
+import { navigate, useRouteStep } from '../router'
 import { newId, useAppStore } from '../store/useAppStore'
 import { generateSeed } from '../engine/rng'
 import { suggestedConfig, validateConfig } from '../engine/advisor'
@@ -19,12 +19,14 @@ interface DraftLevel {
   bestOf: BestOf
 }
 
-const LEVEL_NAMES = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳']
+// A bare letter reads as a list marker rather than a name — 'דרג' is the word that
+// makes it a division. Only a default: the name is editable per level.
+const LEVEL_NAMES = ['דרג א׳', 'דרג ב׳', 'דרג ג׳', 'דרג ד׳', 'דרג ה׳']
 
 function emptyLevel(index: number): DraftLevel {
   return {
     key: newId(),
-    name: LEVEL_NAMES[index] ?? String(index + 1),
+    name: LEVEL_NAMES[index] ?? `דרג ${index + 1}`,
     playerIds: [],
     config: { format: 'roundRobin' },
     bestOf: 5,
@@ -38,7 +40,7 @@ export function NewTournament() {
   const roster = useAppStore((s) => s.roster)
   const saveTournament = useAppStore((s) => s.saveTournament)
 
-  const [step, setStep] = useState(0)
+  const [step, goToStep] = useRouteStep()
   const [name, setName] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [scoreMode, setScoreMode] = useState<ScoreMode>('quick')
@@ -253,14 +255,14 @@ export function NewTournament() {
       <div className="mt-6 flex gap-2">
         <Button
           variant="subtle"
-          onClick={() => (step === 0 ? navigate({ name: 'home' }) : setStep(step - 1))}
+          onClick={() => (step === 0 ? navigate({ name: 'home' }) : goToStep(step - 1))}
         >
           {step === 0 ? t('common.cancel') : t('common.previous')}
         </Button>
         <div className="flex-1" />
         {step < STEPS.length - 1 ? (
           <Button
-            onClick={() => setStep(step + 1)}
+            onClick={() => goToStep(step + 1)}
             disabled={step === 0 ? !name.trim() : totalPlayers === 0}
           >
             {t('common.next')}
