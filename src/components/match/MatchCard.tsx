@@ -36,7 +36,7 @@ export function MatchCard({
       type="button"
       disabled={!view.playable}
       onClick={() => onOpen(view)}
-      className={`relative w-full overflow-hidden rounded-xl px-4 py-3.5 text-start transition-all duration-150
+      className={`print-keep relative w-full overflow-hidden rounded-xl px-4 py-3.5 text-start transition-all duration-150
         ${
           view.playable
             ? 'bg-white ring-1 ring-court-100 hover:-translate-y-px hover:bg-court-50 hover:ring-court-400 hover:shadow-md active:scale-[0.99] dark:bg-court-900 dark:ring-court-800 dark:hover:bg-court-800 dark:hover:ring-court-500'

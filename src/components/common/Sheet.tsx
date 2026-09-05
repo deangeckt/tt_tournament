@@ -33,7 +33,7 @@ export function Sheet({
       {open ? (
         <>
           <motion.div
-            className="fixed inset-0 z-30 bg-black/45"
+            className="no-print fixed inset-0 z-30 bg-black/45"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -42,7 +42,7 @@ export function Sheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[88vh] max-w-lg overflow-y-auto
+            className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[88vh] max-w-lg overflow-y-auto
               rounded-t-3xl bg-white p-5 shadow-2xl dark:bg-court-900"
             style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
             initial={{ y: '100%' }}

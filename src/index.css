@@ -198,6 +198,17 @@ textarea {
     font-size: 11pt;
   }
 
+  /* The app fills the viewport and locks its own scrolling; paper has neither a
+     viewport nor a scrollbar, so a full-height root that hides its overflow is a
+     guillotine — it prints one page and drops the rest. A sheet that was open a
+     moment ago also leaves `body { overflow: hidden }` behind for a frame. */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   /* The wallpaper is atmosphere, not information, and it is pure ink on paper. */
   body::before {
     display: none;
@@ -208,10 +219,41 @@ textarea {
     padding: 0 !important;
   }
 
-  /* Cards and tables are outlined rather than filled, and never split down the
-     middle by a page break. */
-  table,
-  section {
+  /* Backgrounds are dropped by default when printing and these cards are a fill
+     plus a shadow ring, so on paper they need a line of their own — otherwise the
+     page is one undifferentiated column of names and numbers. */
+  .print-keep {
+    border: 1px solid #bbb;
+    border-radius: 0.75rem;
+  }
+
+  /*
+   * Keep the *small* units whole and let everything above them break. Asking a whole
+   * `section` to avoid a break asks for the impossible — a section taller than the
+   * page cannot honour it — and a browser handed an impossible request moves the
+   * section to the next page anyway, which is what left the champion alone at the
+   * top of page one with the rest of it blank.
+   */
+  .print-keep,
+  tr {
     break-inside: avoid;
+  }
+
+  /* A heading at the foot of a page belongs with what it names. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  /* A table that does have to span two pages repeats its header on the second. */
+  thead {
+    display: table-header-group;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid #ddd;
   }
 }

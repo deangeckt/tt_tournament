@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import type { Tournament } from '../../engine/types'
 import { SAFE_URL_LENGTH, shareUrl } from '../../share/payload'
 import { SHORTENABLE_URL_LENGTH, shortenUrl } from '../../share/shorten'
+import { printPage } from '../../share/print'
 import { summaryText } from '../../share/summary'
 import { Button, Ltr } from '../common/ui'
 import { Sheet } from '../common/Sheet'
@@ -87,6 +88,19 @@ export function ShareSheet({
 
   const qrImage = qr?.url === url ? qr.data : null
 
+  /**
+   * What the line under the link has to say — which is nothing once a short link is
+   * there. Only an *absent* or pending short link needs explaining; a present one
+   * explains itself.
+   */
+  const note = shortening
+    ? t('share.shortening')
+    : shortUrl
+      ? null
+      : canShorten
+        ? t('share.shortenFailed')
+        : t('share.shortenTooLong')
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url)
@@ -98,8 +112,7 @@ export function ShareSheet({
 
   const print = () => {
     onClose()
-    // Let the sheet finish sliding away, or it lands in the printout.
-    setTimeout(() => window.print(), 350)
+    printPage()
   }
 
   return (
@@ -130,15 +143,9 @@ export function ShareSheet({
                   </Button>
                 ) : null}
               </div>
-              <p className="text-xs text-court-500 dark:text-court-300">
-                {shortening
-                  ? t('share.shortening')
-                  : shortUrl
-                    ? t('share.shortHint')
-                    : canShorten
-                      ? t('share.shortenFailed')
-                      : t('share.shortenTooLong')}
-              </p>
+              {note ? (
+                <p className="text-xs text-court-500 dark:text-court-300">{note}</p>
+              ) : null}
             </>
           )}
         </section>

@@ -89,7 +89,7 @@ export function Button({ variant = 'primary', size = 'md', className = '', ...re
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-2xl bg-white p-5 ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800 ${className}`}
+      className={`print-keep rounded-2xl bg-white p-5 ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800 ${className}`}
     >
       {children}
     </div>

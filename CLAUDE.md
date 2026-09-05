@@ -107,7 +107,12 @@ The first two never touch a server; the third does, and says so:
   `Tournament` stores slim `{id,name}` player copies while the roster keeps the photo.
 - **`src/store/backup.ts`** — everything, as one JSON file, exported/imported/shared
   from the settings screen. Import is keyed by id and merges by default, so re-importing
-  a file you already have is a no-op rather than a pile of duplicates.
+  a file you already have is a no-op rather than a pile of duplicates. It is also the
+  one action that **reloads the page**: it rewrites records other screens are already
+  holding — in `replace` mode, including the open tournament — and re-reading the store
+  would refresh only the screen that asked. The confirmation is parked in
+  `sessionStorage` (`stashImportSummary`) and picked up on the way back up, which works
+  because hash routing lands the reload back on the settings screen.
 - **`src/share/shorten.ts`** — the one place data leaves the device without the user
   carrying it. A share url holds the whole tournament in its fragment, so shortening it
   means uploading that tournament to someone else's server: the exact property the

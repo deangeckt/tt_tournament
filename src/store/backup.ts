@@ -79,6 +79,37 @@ export async function importBackup(
   return { tournaments: backup.tournaments.length, players: backup.roster.length }
 }
 
+/**
+ * An import rewrites the database underneath a running app: in 'replace' mode it can
+ * pull away the very tournament a screen is holding, and even a merge lands records
+ * no open screen asked for. Reloading is the honest way to put every screen back in
+ * step with storage, so the confirmation has to outlive the reload — it is parked
+ * here on the way out and collected on the way back up.
+ */
+const IMPORT_NOTICE_KEY = 'tt-import-summary'
+
+export function stashImportSummary(summary: ImportSummary): void {
+  try {
+    sessionStorage.setItem(IMPORT_NOTICE_KEY, JSON.stringify(summary))
+  } catch {
+    // Storage blocked: the data still imported, only the confirmation is lost.
+  }
+}
+
+/** Read the parked confirmation once — a later reload must not show it again. */
+export function takeImportSummary(): ImportSummary | null {
+  try {
+    const raw = sessionStorage.getItem(IMPORT_NOTICE_KEY)
+    sessionStorage.removeItem(IMPORT_NOTICE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<ImportSummary>
+    if (typeof parsed?.tournaments !== 'number' || typeof parsed.players !== 'number') return null
+    return { tournaments: parsed.tournaments, players: parsed.players }
+  } catch {
+    return null
+  }
+}
+
 export function backupFilename(now = new Date()): string {
   return `tt-tournament-${now.toISOString().slice(0, 10)}.json`
 }

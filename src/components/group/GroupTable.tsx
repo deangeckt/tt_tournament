@@ -40,7 +40,7 @@ export function GroupTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800">
+    <div className="print-keep overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800">
       <div className="border-b border-court-100 px-4 py-3 text-lg font-bold dark:border-court-800">
         {title}
       </div>

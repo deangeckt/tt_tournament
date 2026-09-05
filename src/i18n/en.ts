@@ -251,8 +251,6 @@ export const en = {
     copyLink: 'Copy link',
     shorten: 'Try again',
     shortening: 'Shortening…',
-    shortHint:
-      'Short links are made by a free outside service, so a copy of this tournament is uploaded to it.',
     shortenFailed: 'No shortening service answered, so this is the full link. It works just as well, but it is long.',
     shortenTooLong: 'This tournament is too large to shorten, so this is the full link.',
     tooLong: 'This tournament is too large for a link. Print it, or export a backup from Settings.',

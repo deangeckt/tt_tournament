@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/useAppStore'
 import {
@@ -8,6 +8,8 @@ import {
   importBackup,
   parseBackup,
   shareTextFile,
+  stashImportSummary,
+  takeImportSummary,
   type ImportMode,
 } from '../store/backup'
 import { applyLocale, type Locale } from '../i18n'
@@ -30,7 +32,6 @@ export function Settings() {
   const { t, i18n } = useTranslation()
   const roster = useAppStore((s) => s.roster)
   const tournaments = useAppStore((s) => s.tournaments)
-  const load = useAppStore((s) => s.load)
   const fileInput = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<ImportMode>('merge')
   const themePref = useTheme((s) => s.pref)
@@ -43,10 +44,13 @@ export function Settings() {
    * is not the only thing a single interpolated sentence would get wrong — and
    * i18next can only pluralise one count per key.
    */
-  const counts = (tournamentTotal: number, playerTotal: number) =>
-    `${t('settings.tournamentCount', { count: tournamentTotal })} · ${t('home.players', {
-      count: playerTotal,
-    })}`
+  const counts = useCallback(
+    (tournamentTotal: number, playerTotal: number) =>
+      `${t('settings.tournamentCount', { count: tournamentTotal })} · ${t('home.players', {
+        count: playerTotal,
+      })}`,
+    [t],
+  )
 
   const exportFile = () => {
     downloadText(backupFilename(), backupText())
@@ -66,9 +70,23 @@ export function Settings() {
       return
     }
     const imported = await importBackup(backup, mode)
-    await load()
-    toast(t('settings.importDone', { summary: counts(imported.tournaments, imported.players) }))
+    // Re-reading the store would refresh this screen's counts and leave everything
+    // else — an open tournament, a player sheet, anything holding a record the import
+    // has just rewritten — describing the database as it was. Reloading is the one
+    // move that puts the whole app back on the imported data at once; hash routing
+    // brings the user back to this same screen, where the toast is waiting.
+    stashImportSummary(imported)
+    window.location.reload()
   }
+
+  // The other end of that reload. Once, on mount: takeImportSummary clears the
+  // notice, so nothing here can repeat it.
+  useEffect(() => {
+    const imported = takeImportSummary()
+    if (imported) {
+      toast(t('settings.importDone', { summary: counts(imported.tournaments, imported.players) }))
+    }
+  }, [counts, t])
 
   const THEME_LABELS: Record<ThemePref, string> = {
     system: t('settings.themeSystem'),
