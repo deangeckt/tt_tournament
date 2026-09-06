@@ -10,6 +10,7 @@ import type {
   Tournament,
 } from '../engine/types'
 import { buildFixtures } from '../engine/resolve'
+import { ranksOrNone, toppedUpRanks } from './ranks'
 import { generateSeed } from '../engine/rng'
 import type { AdoptPlan } from '../share/adopt'
 import {
@@ -213,10 +214,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   async patchLevel(levelId, patch) {
     const current = get().current
     if (!current) return
+    const roster = get().roster
     await get().saveTournament({
       ...current,
       levels: current.levels.map((level) =>
-        level.id === levelId ? { ...level, ...patch } : level,
+        level.id === levelId
+          ? toppedUpRanks({ ...level, ...patch }, level, roster, current.results)
+          : level,
       ),
     })
   },
@@ -245,7 +249,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   async addLevel(level) {
     const current = get().current
     if (!current) return
-    await get().saveTournament({ ...current, levels: [...current.levels, level] })
+    // A level born into a running tournament is drawn against today's ranks: this
+    // and the wizard are the only two places a ranks map comes into existence
+    // without a redraw, because both are drawing a level for the first time.
+    const born = { ...level, ranks: level.ranks ?? ranksOrNone(level.playerIds, get().roster) }
+    await get().saveTournament({ ...current, levels: [...current.levels, born] })
   },
 
   async removeLevel(levelId) {
@@ -282,14 +290,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       // result they left behind is flagged rather than reassigned.
       levels: current.levels.map((level) => {
         if (level.id === fromLevelId) {
-          return {
-            ...level,
-            playerIds: level.playerIds.filter((id) => id !== playerId),
-            withdrawn: level.withdrawn.filter((id) => id !== playerId),
-          }
+          return toppedUpRanks(
+            {
+              ...level,
+              playerIds: level.playerIds.filter((id) => id !== playerId),
+              withdrawn: level.withdrawn.filter((id) => id !== playerId),
+            },
+            level,
+            get().roster,
+            current.results,
+          )
         }
         if (level.id === toLevelId && !level.playerIds.includes(playerId)) {
-          return { ...level, playerIds: [...level.playerIds, playerId] }
+          return toppedUpRanks(
+            { ...level, playerIds: [...level.playerIds, playerId] },
+            level,
+            get().roster,
+            current.results,
+          )
         }
         return level
       }),
@@ -316,7 +334,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       // A fresh seed with a hand-made order still on it would change nothing, so
       // "draw again" also means "forget my arrangement".
       levels: current.levels.map((l) =>
-        l.id === levelId ? { ...l, seed: generateSeed(), manualOrder: undefined } : l,
+        l.id === levelId
+          ? {
+              ...l,
+              seed: generateSeed(),
+              manualOrder: undefined,
+              // The one moment a drawn level takes fresh ranks. Everywhere else they
+              // are frozen so that a finished draw stays put; here the draw is being
+              // thrown away regardless, which makes this both the safe place to pick
+              // up numbers that have moved and the only way a tournament started
+              // before anyone had a rank can begin using them.
+              ranks: ranksOrNone(l.playerIds, get().roster),
+            }
+          : l,
       ),
     })
   },

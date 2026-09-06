@@ -240,6 +240,11 @@ export const en = {
     resultsWarn:
       'Moving someone who has already played leaves their result on a match they are no longer in. The app will flag it rather than reassign it.',
     manualBadge: 'Arranged by hand',
+    rankedBadge: 'Drawn by rank',
+    rankedHint:
+      'The field is banded by TTTM points, so a group holds players of one standard. The code decides only what the ranks do not — the unranked, and anyone level on points. Drawing again also picks up ranks that have changed since.',
+    rankedSettled:
+      'Everyone here is ranked, so the ranks settle this draw between them: drawing again reproduces it unless a rank or the players change.',
   },
   share: {
     open: 'Share',
@@ -336,6 +341,44 @@ export const en = {
     placed: 'Finished {{n}}',
     championHere: 'Won it',
     removeFromRoster: 'Remove from the saved list',
+  },
+  rank: {
+    title: 'TTTM rank',
+    hint: 'Ranking points from the Israeli league. A level is drawn in bands of them, so people meet others of their own standard.',
+    placeholder: 'e.g. 1747.6',
+    saved: 'Rank saved for {{name}}',
+    cleared: 'Rank cleared for {{name}}',
+    invalid: 'A rank is a number of points, like 1747.6.',
+    open: 'Their TTTM page',
+    lookup: 'Look it up on TTTM',
+    lookupClose: 'Close the lookup',
+    searchLabel: 'Their name on TTTM',
+    search: 'Search',
+    searching: 'Looking…',
+    oneFound: 'One player by that name.',
+    pickOne: 'More than one player by that name — pick the right one.',
+    noClub: 'No club',
+    position: 'no. {{n}} nationally',
+    // Reached through `rank.<outcome>`, so these three names are load-bearing.
+    none: 'TTTM has nobody by that name. If they are registered but the season’s ranking list is not out yet, paste a link to their page below.',
+    busy: 'Too many lookups in the last minute. Give it a moment and try again.',
+    unreachable: 'Could not reach TTTM. Try again, or type the number in above.',
+    linkLabel: 'Or paste a link to their TTTM page',
+    linkPlaceholder: 'https://www.tttm.co.il/p/676/…',
+    fetch: 'Read it',
+    badLink: 'That is not a link to a TTTM player page.',
+    applied: '{{name}} — {{rank}} points',
+    appliedPhoto: '{{name}} — {{rank}} points, and a photo',
+    relayNote:
+      'A lookup asks an outside service to fetch the TTTM page, because tttm.co.il cannot be read from a web page directly. Only the name or link you look up leaves this device.',
+  },
+  restore: {
+    title: 'Bring your players with you',
+    body: 'Nothing is saved on this device yet. If you exported a backup from another phone or laptop, load it here — your players, their ranks and every tournament come across with it.',
+    action: 'Load a backup file',
+    working: 'Loading…',
+    more: 'Other options',
+    otherwise: 'No backup? Just add players as you go.',
   },
   feedback: {
     scoreSaved: 'Score saved',

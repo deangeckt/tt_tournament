@@ -10,7 +10,13 @@ import type {
   StoredResult,
 } from './types'
 import { rngFromSeed } from './rng'
-import { drawOrder, seedBracketSlots } from './draw'
+import {
+  bandedBracketOrder,
+  bandedGroupOrder,
+  drawOrder,
+  rankedOrder,
+  seedBracketSlots,
+} from './draw'
 import { generateGroupMatches, singleGroup } from './formats/roundRobin'
 import { generateSingleElim } from './formats/singleElim'
 import { buildGroupsKnockout } from './formats/groupsKnockout'
@@ -66,12 +72,40 @@ export interface LevelView {
 }
 
 /**
- * Generate a level's fixture graph.
+ * The seeded draw, before any hand-made arrangement is laid over it.
  *
- * Pure in (players, config, seed): the same three inputs always produce the same
- * matches with the same ids, which is what lets results be stored by match id and
- * everything else be recomputed rather than saved.
+ * With no ranks this is a flat shuffle, which is what every draw made before ranks
+ * existed still gets. With them it is a *banded* draw: the field is sorted by ranking
+ * points and then arranged so that the generator's own permutation — the snake for
+ * groups, the seed order for a bracket — lands near neighbours together rather than
+ * spreading them apart. The result is a night of matches between players of roughly
+ * one standard, which is the point of collecting the ranks at all.
+ *
+ * The seed still decides everything rank does not: who among the unranked goes where,
+ * and how players level on points are ordered. A field where everyone carries a
+ * different rank is drawn the same way every time, and drawing it again will say so.
  */
+function drawnOrder(level: Level): PlayerId[] {
+  const rng = rngFromSeed(level.seed)
+  const ranks = level.ranks
+  if (!ranks || !level.playerIds.some((id) => ranks[id] !== undefined)) {
+    return drawOrder(level.playerIds, rng)
+  }
+
+  const sorted = rankedOrder(level.playerIds, ranks, rng)
+  switch (level.config.format) {
+    case 'roundRobin':
+      // Everyone meets everyone, so the order is only the order matches are listed
+      // in. Strongest first makes the running order read like the standings will.
+      return sorted
+    case 'groupsKnockout':
+      return bandedGroupOrder(sorted, level.config.groupCount)
+    case 'singleElim':
+    case 'doubleElim':
+      return bandedBracketOrder(sorted)
+  }
+}
+
 /**
  * The draw order every fixture derives from: the seeded shuffle, unless the manager
  * has arranged one by hand.
@@ -82,7 +116,7 @@ export interface LevelView {
  * across roster edits instead of forcing a redraw whenever a latecomer arrives.
  */
 export function levelDrawOrder(level: Level): PlayerId[] {
-  const seeded = drawOrder(level.playerIds, rngFromSeed(level.seed))
+  const seeded = drawnOrder(level)
   if (!level.manualOrder || level.manualOrder.length === 0) return seeded
 
   const inLevel = new Set(level.playerIds)
@@ -122,6 +156,14 @@ export function drawPlacements(level: Level): DrawPlacement[] {
   }))
 }
 
+/**
+ * Generate a level's fixture graph.
+ *
+ * Pure in the level's own source state — players, config, seed and the ranks it was
+ * drawn against — so the same level always produces the same matches with the same
+ * ids, which is what lets results be stored by match id and everything else be
+ * recomputed rather than saved.
+ */
 export function buildFixtures(level: Level): { groups: Group[]; matches: Match[] } {
   const ordered = levelDrawOrder(level)
   const config = level.config

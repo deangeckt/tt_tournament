@@ -107,6 +107,10 @@ export function EditSheet({
    * — fine for the guards that only reshape a draw, wrong for the one that deletes.
    */
   const storedHere = playedIn.get(level.id) ?? 0
+  // How much of this level's draw the ranks decided. A level drawn before anyone had
+  // one, or at a club that does not use TTTM, is banded by nothing and says nothing.
+  const rankedCount = level.playerIds.filter((id) => level.ranks?.[id] !== undefined).length
+  const banded = rankedCount > 0
   const recommended = suggestedConfig(level.playerIds.length)
   const suggestFormat = playedCount === 0 && recommended.format !== level.config.format
 
@@ -519,6 +523,11 @@ export function EditSheet({
                 {t('draw.manualBadge')}
               </span>
             ) : null}
+            {banded ? (
+              <span className="rounded-lg bg-court-600/15 px-2 py-1 text-xs font-medium text-court-700 dark:text-court-100">
+                {t('draw.rankedBadge')}
+              </span>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -576,9 +585,19 @@ export function EditSheet({
                 <Ltr>{level.seed}</Ltr>
               </span>
             </div>
+            {/* What the code still decides depends on what else the draw was given.
+                With ranks on the level it decides only the ties, which is worth
+                saying before somebody draws again and finds nothing moved. */}
             <p className="mt-1 text-sm">
-              {level.manualOrder ? t('run.seedManual') : t('run.seedHint')}
+              {level.manualOrder
+                ? t('run.seedManual')
+                : banded
+                  ? t('draw.rankedHint')
+                  : t('run.seedHint')}
             </p>
+            {banded && !level.manualOrder && rankedCount === level.playerIds.length ? (
+              <p className="mt-1 text-sm">{t('draw.rankedSettled')}</p>
+            ) : null}
           </div>
         </div>
 

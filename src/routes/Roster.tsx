@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/useAppStore'
-import { Avatar, Button, Card, PageTitle, inputClass } from '../components/common/ui'
+import { Avatar, Button, Card, Ltr, PageTitle, inputClass } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
 import { PlayerSheet } from '../components/player/PlayerSheet'
+import { ImportPrompt } from '../components/data/ImportPrompt'
 import { toast } from '../store/useToasts'
 import { navigate } from '../router'
 
 export function Roster() {
   const { t } = useTranslation()
   const roster = useAppStore((s) => s.roster)
+  const loaded = useAppStore((s) => s.loaded)
   const addRosterPlayer = useAppStore((s) => s.addRosterPlayer)
   const removeRosterPlayer = useAppStore((s) => s.removeRosterPlayer)
   const [name, setName] = useState('')
@@ -60,7 +62,13 @@ export function Roster() {
       </form>
 
       {roster.length === 0 ? (
-        <Card className="text-center text-court-600 dark:text-court-200">{t('roster.empty')}</Card>
+        // The list is empty for two very different reasons — a brand new device, or a
+        // device that has lost its data — and the answer to both is the same file.
+        loaded ? (
+          <ImportPrompt />
+        ) : (
+          <Card className="text-center text-court-600 dark:text-court-200">{t('roster.empty')}</Card>
+        )
       ) : (
         <ul className="divide-y divide-court-100 overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:divide-court-800 dark:bg-court-900 dark:ring-court-800">
           {roster.map((player) => (
@@ -74,6 +82,14 @@ export function Roster() {
               >
                 <Avatar name={player.name} photo={player.photo} />
                 <span className="min-w-0 flex-1 truncate">{player.name}</span>
+                {/* The one number that changes how the night is drawn, so it belongs
+                    on the row rather than one tap inside it — a manager scanning for
+                    who still needs a rank should not have to open twenty sheets. */}
+                {player.rank !== undefined ? (
+                  <span className="shrink-0 rounded-lg bg-court-100 px-2 py-1 text-sm font-medium text-court-600 tabular-nums dark:bg-court-800 dark:text-court-200">
+                    <Ltr>{player.rank}</Ltr>
+                  </span>
+                ) : null}
                 {/* Flipped rather than swapped for a different glyph: one arrow,
                     pointing whichever way "forward" happens to be. */}
                 <span

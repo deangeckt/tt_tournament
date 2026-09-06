@@ -27,6 +27,17 @@ export interface Player {
    * photos and stays inside a URL.
    */
   photo?: string
+  /**
+   * The player's TTTM ranking points, e.g. 1747.6. Higher is stronger.
+   *
+   * Deliberately the raw points rather than a ladder position: a position shuffles
+   * every time anyone else plays, while the gap between 1747 and 900 is the thing the
+   * draw actually wants to know. Absent means unranked, which is not the same as
+   * zero — a player on 0.0 has a ranking and has not scored on it yet.
+   */
+  rank?: number
+  /** Their id on tttm.co.il, kept so a rank can be refreshed without searching again. */
+  tttmId?: number
 }
 
 /** Points in a single game, e.g. { a: 11, b: 9 }. */
@@ -129,6 +140,20 @@ export interface Level {
   manualOrder?: PlayerId[]
   /** Players who withdrew after the draw; their remaining matches become walkovers. */
   withdrawn: PlayerId[]
+  /**
+   * The ranking points this level was drawn against, frozen when the draw was made.
+   *
+   * The one piece of source state that is copied rather than read live, because its
+   * origin is *outside* the tournament: a rank is a roster field that TTTM revises
+   * every week. Deriving the draw from the live value would mean correcting a rank in
+   * March silently rearranging January's bracket and throwing every result in it onto
+   * the stale pile. So a level keeps the numbers it was drawn against, and drawing
+   * again is what picks up new ones.
+   *
+   * Absent — every tournament drawn before ranks existed — means an unweighted
+   * shuffle, exactly as before.
+   */
+  ranks?: Record<PlayerId, number>
 }
 
 export interface Tournament {

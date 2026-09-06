@@ -11,7 +11,13 @@
 const MAX_EDGE = 320
 const QUALITY = 0.82
 
-export async function readPhoto(file: File, maxEdge = MAX_EDGE): Promise<string> {
+/**
+ * Takes a Blob rather than a File so a photograph fetched from elsewhere — a player's
+ * picture pulled off TTTM — goes through exactly the same squaring, downscaling and
+ * re-encoding as one chosen from the camera roll. Every File is a Blob, so nothing
+ * that called this before has to change.
+ */
+export async function readPhoto(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
   const bitmap = await createImageBitmap(file)
   try {
     // Centre crop to a square first, so faces are not stretched by the avatar's

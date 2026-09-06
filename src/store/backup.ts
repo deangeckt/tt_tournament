@@ -80,6 +80,21 @@ export async function importBackup(
 }
 
 /**
+ * Read a chosen file straight into storage, or answer null when it is not ours.
+ *
+ * Both places that offer an import — the settings screen, and the prompt an empty
+ * device shows instead of a roster — go through here, so 'that file is not a backup
+ * from this app' is decided once and cannot come to mean two different things.
+ */
+export async function importFile(
+  file: File,
+  mode: ImportMode = 'merge',
+): Promise<ImportSummary | null> {
+  const backup = parseBackup(await file.text())
+  return backup ? importBackup(backup, mode) : null
+}
+
+/**
  * An import rewrites the database underneath a running app: in 'replace' mode it can
  * pull away the very tournament a screen is holding, and even a merge lands records
  * no open screen asked for. Reloading is the honest way to put every screen back in

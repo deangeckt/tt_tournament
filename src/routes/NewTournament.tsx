@@ -2,9 +2,18 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate, useRouteStep } from '../router'
 import { newId, useAppStore } from '../store/useAppStore'
+import { ranksOrNone } from '../store/ranks'
 import { generateSeed } from '../engine/rng'
 import { suggestedConfig, validateConfig } from '../engine/advisor'
-import type { BestOf, FormatConfig, Level, PlayerId, ScoreMode, Tournament } from '../engine/types'
+import type {
+  BestOf,
+  FormatConfig,
+  Level,
+  Player,
+  PlayerId,
+  ScoreMode,
+  Tournament,
+} from '../engine/types'
 import { Button, Card, Chip, Field, PageTitle, inputClass } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
 import { toast } from '../store/useToasts'
@@ -61,7 +70,7 @@ function buildTournament(
     tableCount: number
     levels: DraftLevel[]
   },
-  roster: readonly { id: PlayerId; name: string }[],
+  roster: readonly Player[],
 ): Tournament {
   const usedIds = new Set(draft.levels.flatMap((l) => l.playerIds))
   const now = Date.now()
@@ -82,6 +91,10 @@ function buildTournament(
       bestOf: level.bestOf,
       seed: generateSeed(),
       withdrawn: [],
+      // Frozen here, at the only moment this level is ever drawn for the first time.
+      // From now on the level keeps these numbers however often TTTM revises them,
+      // so tonight's bracket is still tonight's bracket when it is read back in June.
+      ranks: ranksOrNone(level.playerIds, roster),
     })),
     results: {},
     tableAssignments: {},

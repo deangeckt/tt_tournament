@@ -47,11 +47,34 @@ This is why editing an early score is safe: change one map entry and the whole
 downstream tree re-derives. It is also why a share link carries no bracket, and why a
 stored seed lets anyone replay the draw and verify it wasn't rigged.
 
-`manualOrder` is the one addition, and it obeys the same rule: it replaces the *draw
+`manualOrder` is the one addition that obeys the same rule: it replaces the *draw
 order*, the single list every fixture already derives from, so a hand-made draw needs
 no second code path. `levelDrawOrder` reconciles it against the current players —
 departed ids drop out, latecomers fall in at their seeded position — so it survives
 roster edits rather than forcing a redraw.
+
+`Level.ranks` is the addition that **breaks** the rule, and the exception is the point.
+A player's TTTM ranking points live on the roster record, outside any tournament, and
+the league revises them every week. A draw derived from the live value would mean
+refreshing a rank in March silently rearranging January's bracket — new match ids, and
+every result in it thrown onto the stale pile. So the numbers a level was drawn against
+are copied onto the level and frozen there. Absent — every night before this existed,
+and every club that does not use TTTM — means the plain shuffle, unchanged.
+
+`src/store/ranks.ts` owns the three rules for when that copy may be written, and each
+one is a bug avoided rather than a preference. A number already on the level is never
+overwritten: that is the freeze. A level with no ranks at all is never retro-fitted,
+because switching one on would band a draw people are already playing — so **drawing
+again** is the way in, and the way a tournament started before anyone had a rank begins
+using them. And a latecomer is given their rank only while the level holds **no stored
+result**: ranks arrive at all sorts of moments, and topping one up afterwards would
+re-sort the band order under results already keyed to the seats the old order produced,
+flagging every score in the level from an edit as unrelated as marking someone
+withdrawn. Before the first result a redraw is free and there is nothing to detach.
+
+The freeze is why `adopt.ts` has to rewrite the keys of `ranks` along with every other
+player id: a map still keyed by the sender's ids would draw an unranked field on the
+receiving device and detach every stored result from its match. There is a test.
 
 Before adding state, ask whether it can be derived instead. It usually can. Career
 records (`src/engine/stats.ts`) are derived the same way, from the tournaments
@@ -87,6 +110,32 @@ generation time; after the draw everything downstream is the same data structure
 
 Match ids must be **stable across recomputes** — results are keyed by them. They are
 derived from level/stage/round/order, never from array position at render time.
+
+### The banded draw
+
+Given ranks, the draw stops being flat and becomes **banded**: the field is sorted by
+points and arranged so players of one standard meet each other. Group A is the top four,
+group B the next four; round one of a bracket pairs rank neighbours. This is the
+*opposite* of championship seeding, and deliberately so — a club night is judged on
+whether the matches were worth playing, not on whether the two best met in the final.
+
+The generators were not touched to do it. `snakeIntoGroups` exists to *spread*
+consecutive draw positions across groups and `bracketSeedOrder` pairs best-with-worst;
+rather than give either a second mode, `bandedGroupOrder` and `bandedBracketOrder`
+**invert** them — they work out which seats each group or pairing will be handed, and
+drop a band on those seats. So there is still one code path from the draw order down,
+and `manualOrder`, `drawPlacements` and the hand-editable draw all keep working
+untouched. Byes still go to the strongest, which is the one half of standard seeding
+worth keeping.
+
+The seed still decides everything the ranks do not: who among the unranked goes where,
+and how players level on points are ordered. `rankedOrder` shuffles *before* it sorts
+for exactly this reason — `sort` is stable, so equal ranks would otherwise keep the
+order they arrived in, which is the roster's Hebrew alphabet.
+
+One consequence worth surfacing rather than hiding, and the edit sheet says it: in a
+field where everyone is ranked, the ranks settle the draw between them and "draw again"
+reproduces it.
 
 ### Engine boundaries
 
@@ -158,6 +207,58 @@ changes; there is one.
 The plan is computed before the button is pressed, not after, because "5 recognised, 3
 added, replaces the copy already here" is what the manager needs while deciding. Only
 the replacing case destroys anything, so only that case offers an undo.
+
+### Reading a rank off TTTM
+
+`src/tttm/` fetches a player's ranking points from tttm.co.il. It is split in two
+because only half of it is worth testing: `parse.ts` is pure (URLs in, text in, records
+out) and has fixtures captured byte for byte from the real site; `lookup.ts` is the part
+with a third party in it.
+
+Three ways in, because the league's own database is only reliably reachable by one of
+them at a time. Typing the number always works. **Search** works once the season's
+ranking list is published. A **pasted link** is what is left in the weeks before that,
+when the player exists, the page exists, and the search returns nothing — which is a
+club's every autumn, and the reason the third path is not redundant.
+
+Two things about the site shape the code, and both were found by trying it:
+
+- **Its search matches one word against one name field.** "עמית גורן" returns nobody at
+  all; "גורן" returns twenty. That single behaviour is most of why a manager concludes
+  their player is not in the database, so `searchTerms` never sends a name with a space
+  in it — the surname goes first, being the more selective half. What comes back is the
+  whole family, ordered by `rankMatches` and never filtered, because the reason someone
+  is here may be that the two spellings differ.
+- **Two people really do share a name.** Searching "גורן" returns two players called
+  עמית גורן: 676 on 1747.6 with a club, and 2682 on 0.0 with none — and TTTM lists the
+  unranked one first. Hence points breaking the tie inside each match tier, and hence a
+  picker rather than a best guess.
+
+The relay is the cost. tttm.co.il answers with no `Access-Control-Allow-Origin`, so a
+page cannot read it — the same wall that ruled four shorteners out of `share/shorten.ts`,
+and there is no way round it from a static site. Of the keyless relays still standing,
+**r.jina.ai** is the one that answers: it echoes the requesting origin, handles the
+preflight, and is not saturated. Left alone it returns its own Markdown rendering, which
+drops every image and would make the app depend on how a third party formats tables — so
+it is asked for `x-respond-with: html` plus an `x-target-selector`, which returns TTTM's
+own markup and only the part wanted. A player's card comes back as **946 bytes** instead
+of the 1MB page it sits in, which is the difference between a lookup and a download on a
+phone at the club.
+
+Photographs need a second relay for a reason worth remembering: an `<img>` would display
+a TTTM picture perfectly well, but a canvas drawn from it is tainted, so it could never
+be *stored*. Reading the bytes needs CORS just as the page does. `images.weserv.nl`
+serves them with `Access-Control-Allow-Origin: *` and resizes on the way through, and the
+same URL builder feeds the thumbnails in the results list — otherwise browsing a list of
+candidates would quietly hit TTTM from every row while the note underneath claimed only
+the search had left the device. The bytes still go through `readPhoto`: that is the one
+place the app decides how large a stored photo may be, and a relay is not where to start
+trusting a remote server's idea of it.
+
+Parsed with regular expressions, not `DOMParser`. The input is a fragment asked for by
+selector, so it is small and predictable, and regex keeps the parser runnable under the
+plain node test environment the rest of the engine uses instead of pulling jsdom in for
+one file.
 
 ### The tiebreak chain
 
@@ -350,6 +451,14 @@ links + QR + print/PDF, always-shortened share links, adopting a shared tourname
 this device's own history, JSON export/import from the settings screen, and the doodle
 wallpaper.
 
+Newest: **TTTM ranks** on a saved player — typed in, searched for by name, or read off a
+pasted link, bringing the league photograph with them — and the **banded draw** those
+ranks produce. Plus the **restore prompt** a device with no saved players now shows on
+the home screen and the player list, since a manager arriving on a new phone has the
+whole club in a backup file and should not be retyping twenty names. Its confirmation is
+picked up in `App.tsx` rather than on the settings screen, because an import can now be
+started from three places and the reload can land on any of them.
+
 Two things moved and are easy to look for in the wrong place: the **language and theme
 toggles** live on the settings screen, not the header, and the **draw seed** is in the
 edit sheet next to redraw and the manual draw, not on the tournament page.
@@ -372,6 +481,11 @@ Not built yet:
   dev server serving a stale transform of one file while the disk is correct. If a
   change refuses to appear, compare `curl localhost:<port>/src/path.tsx` against disk
   before debugging the code; the fix is restarting the dev server.
+- **The rank relay is rate-limited**, at twenty requests a minute per IP with no key.
+  Ample for a manager typing names one at a time, and the reason there is no "fetch
+  every rank" button; a `429` is reported as its own outcome (`busy`) because it is the
+  one failure that clears on its own within the minute. Fragments are cached for the
+  life of the page for the same reason.
 - **Hash routing is load-bearing.** GitHub Pages has no rewrite rules, so a real path
   would 404 on refresh. It also means a future share payload can ride in the fragment,
   which browsers never send to the server — a genuine privacy property, worth keeping.

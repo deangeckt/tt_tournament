@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/useAppStore'
 import {
   backupFilename,
   buildBackup,
   downloadText,
-  importBackup,
-  parseBackup,
+  importFile,
   shareTextFile,
   stashImportSummary,
-  takeImportSummary,
   type ImportMode,
 } from '../store/backup'
 import { applyLocale, type Locale } from '../i18n'
+import { dataCounts } from '../i18n/counts'
 import { useTheme } from '../store/useTheme'
 import { THEMES, type ThemePref } from '../store/theme'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
@@ -39,19 +38,6 @@ export function Settings() {
 
   const backupText = () => JSON.stringify(buildBackup(roster, tournaments), null, 2)
 
-  /**
-   * Two counts, each pluralised on its own. Hebrew has a dual form, so "1 tournaments"
-   * is not the only thing a single interpolated sentence would get wrong — and
-   * i18next can only pluralise one count per key.
-   */
-  const counts = useCallback(
-    (tournamentTotal: number, playerTotal: number) =>
-      `${t('settings.tournamentCount', { count: tournamentTotal })} · ${t('home.players', {
-        count: playerTotal,
-      })}`,
-    [t],
-  )
-
   const exportFile = () => {
     downloadText(backupFilename(), backupText())
     toast(t('settings.exportDone'))
@@ -62,31 +48,21 @@ export function Settings() {
     toast(where === 'shared' ? t('settings.shared') : t('settings.exportDone'))
   }
 
-  const importFile = async (file: File | undefined) => {
+  const chooseImport = async (file: File | undefined) => {
     if (!file) return
-    const backup = parseBackup(await file.text())
-    if (!backup) {
+    const imported = await importFile(file, mode)
+    if (!imported) {
       toast(t('settings.importFailed'), 'warn')
       return
     }
-    const imported = await importBackup(backup, mode)
     // Re-reading the store would refresh this screen's counts and leave everything
     // else — an open tournament, a player sheet, anything holding a record the import
     // has just rewritten — describing the database as it was. Reloading is the one
     // move that puts the whole app back on the imported data at once; hash routing
-    // brings the user back to this same screen, where the toast is waiting.
+    // brings the user back to this same screen, where App picks the toast up.
     stashImportSummary(imported)
     window.location.reload()
   }
-
-  // The other end of that reload. Once, on mount: takeImportSummary clears the
-  // notice, so nothing here can repeat it.
-  useEffect(() => {
-    const imported = takeImportSummary()
-    if (imported) {
-      toast(t('settings.importDone', { summary: counts(imported.tournaments, imported.players) }))
-    }
-  }, [counts, t])
 
   const THEME_LABELS: Record<ThemePref, string> = {
     system: t('settings.themeSystem'),
@@ -113,7 +89,7 @@ export function Settings() {
         </Button>
       </div>
 
-      <PageTitle sub={counts(tournaments.length, roster.length)}>
+      <PageTitle sub={dataCounts(t, tournaments.length, roster.length)}>
         {t('settings.title')}
       </PageTitle>
 
@@ -158,7 +134,7 @@ export function Settings() {
             accept="application/json,.json"
             className="hidden"
             onChange={(e) => {
-              void importFile(e.target.files?.[0])
+              void chooseImport(e.target.files?.[0])
               e.target.value = ''
             }}
           />

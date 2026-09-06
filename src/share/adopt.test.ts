@@ -110,6 +110,47 @@ describe('adopting a shared tournament', () => {
     expect(view.played).toBe(Object.keys(results).length)
   })
 
+  /**
+   * Same property again, for a level drawn against ranks. Worth its own test because
+   * the ranks are keyed by player id too, and a rewrite that missed them would leave
+   * the level looking unranked here — a different draw, and every result detached
+   * from the match it was entered on.
+   */
+  it('carries the ranks the draw was made against', () => {
+    const away = shared({
+      levels: [
+        {
+          ...shared().levels[0],
+          config: { format: 'singleElim' },
+          withdrawn: [],
+          ranks: { a1: 1500, a2: 1490, a3: 900, a4: 880 },
+        },
+      ],
+    })
+    const plan = planAdoption(away, roster, [])
+    const level = plan.tournament.levels[0]
+
+    expect(level.ranks).toEqual({ 'home-dana': 1500, 'home-ben': 1490, 'home-yoav': 900, a4: 880 })
+    const rewrite = new Map(away.players.map((player, i) => [player.id, plan.tournament.players[i].id]))
+    expect(levelDrawOrder(level)).toEqual(
+      levelDrawOrder(away.levels[0]).map((id) => rewrite.get(id)),
+    )
+    expect(buildFixtures(level).matches.map((m) => m.id)).toEqual(
+      buildFixtures(away.levels[0]).matches.map((m) => m.id),
+    )
+  })
+
+  it('brings a stranger onto the roster with the rank they arrived carrying', () => {
+    const away = shared({
+      levels: [{ ...shared().levels[0], ranks: { a1: 1500, a4: 1210 } }],
+    })
+    // Only the stranger: 'דנה' is already here, and this device's own idea of her
+    // rank is the newer one.
+    expect(planAdoption(away, roster, []).newPlayers).toEqual([
+      { id: 'a4', name: 'Chen', rank: 1210 },
+    ])
+  })
+
   it('keeps two people who share a name apart', () => {
     const away = shared({
       players: [

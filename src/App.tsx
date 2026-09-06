@@ -7,6 +7,8 @@ import { useAppStore } from './store/useAppStore'
 import { useTheme } from './store/useTheme'
 import { applyTheme } from './store/theme'
 import { requestPersistence } from './store/db'
+import { takeImportSummary } from './store/backup'
+import { dataCounts } from './i18n/counts'
 import { Home } from './routes/Home'
 import { NewTournament } from './routes/NewTournament'
 import { Run } from './routes/Run'
@@ -16,6 +18,7 @@ import { ViewShared } from './routes/ViewShared'
 import { Button } from './components/common/ui'
 import { Tooltip } from './components/common/Tooltip'
 import { ToastHost } from './components/common/Toast'
+import { toast } from './store/useToasts'
 
 const CLUB_URL =
   'https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/'
@@ -107,6 +110,23 @@ export function App() {
   // language — the effect below runs once and must not.
   useEffect(() => {
     document.title = t('app.documentTitle')
+  }, [t])
+
+  // The far side of an import's reload. It used to live on the settings screen,
+  // which was the only place an import could be started from; the prompt an empty
+  // device shows can now start one from the home screen or the player list, and a
+  // confirmation that waits until someone happens to open settings is no
+  // confirmation at all. takeImportSummary clears the notice, so this cannot repeat
+  // it however often the effect runs.
+  useEffect(() => {
+    const imported = takeImportSummary()
+    if (imported) {
+      toast(
+        t('settings.importDone', {
+          summary: dataCounts(t, imported.tournaments, imported.players),
+        }),
+      )
+    }
   }, [t])
 
   useEffect(() => {

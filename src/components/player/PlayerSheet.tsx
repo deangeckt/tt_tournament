@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { readPhoto } from '../../store/photo'
 import { Avatar, Button, Ltr, Stat, inputClass } from '../common/ui'
 import { Sheet } from '../common/Sheet'
+import { RankSection } from './RankSection'
 import { Tooltip } from '../common/Tooltip'
 import { toast } from '../../store/useToasts'
 import { navigate } from '../../router'
@@ -103,6 +104,8 @@ function SheetBody({ player, onClose }: { player: Player; onClose: () => void })
           className={inputClass}
         />
       </label>
+
+      <RankSection player={player} />
 
       <div>
         <h3 className="mb-2 font-bold">{t('player.record')}</h3>

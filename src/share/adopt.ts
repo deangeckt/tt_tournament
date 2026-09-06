@@ -56,6 +56,16 @@ export function planAdoption(
     if (!byName.has(key)) byName.set(key, player)
   }
 
+  // A level carries the ranks it was drawn against, and they are the only record of
+  // an incoming stranger's rank: the slim player copies in a share payload have none.
+  // Worth keeping, so a player who first appears here arrives with their standard.
+  const incomingRank = new Map<PlayerId, number>()
+  for (const level of incoming.levels) {
+    for (const [playerId, rank] of Object.entries(level.ranks ?? {})) {
+      incomingRank.set(playerId, rank)
+    }
+  }
+
   const rename = new Map<PlayerId, PlayerId>()
   const localName = new Map<PlayerId, string>()
   const claimed = new Set<PlayerId>()
@@ -77,7 +87,12 @@ export function planAdoption(
     // Nobody here yet. The incoming id was minted by crypto.randomUUID on the other
     // device, so keeping it collides with nothing and keeps the rewrite a no-op.
     claimed.add(player.id)
-    newPlayers.push({ id: player.id, name: player.name.trim() })
+    const arrival: Player = { id: player.id, name: player.name.trim() }
+    // Only for players this device does not have. A local rank is this manager's own
+    // and may well be newer than the snapshot the tournament was drawn against.
+    const rank = incomingRank.get(player.id)
+    if (rank !== undefined) arrival.rank = rank
+    newPlayers.push(arrival)
   }
 
   const id = (playerId: PlayerId) => rename.get(playerId) ?? playerId
@@ -93,6 +108,12 @@ export function planAdoption(
       playerIds: level.playerIds.map(id),
       withdrawn: level.withdrawn.map(id),
       manualOrder: level.manualOrder?.map(id),
+      // Renamed like everything else, and for the same reason: the draw reads these
+      // by player id, so a map still keyed by the sender's ids would draw an
+      // unranked field here and move every match out from under its stored result.
+      ranks: level.ranks
+        ? Object.fromEntries(Object.entries(level.ranks).map(([who, rank]) => [id(who), rank]))
+        : undefined,
     })),
     results: Object.fromEntries(
       Object.entries(incoming.results).map(([matchId, stored]) => [

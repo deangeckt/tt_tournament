@@ -2,10 +2,12 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/useAppStore'
 import { navigate } from '../router'
 import { Button, Card, PageTitle } from '../components/common/ui'
+import { ImportPrompt } from '../components/data/ImportPrompt'
 
 export function Home() {
   const { t, i18n } = useTranslation()
   const tournaments = useAppStore((s) => s.tournaments)
+  const roster = useAppStore((s) => s.roster)
   const loaded = useAppStore((s) => s.loaded)
 
   const dateFormat = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' })
@@ -29,6 +31,13 @@ export function Home() {
             {t('home.emptyAbout')}
           </p>
         </Card>
+      ) : null}
+
+      {/* Only on a device with nothing at all on it. A manager who already has a
+          roster does not need to be asked, and one mid-season with tournaments but
+          no saved players is in a state a restore would not explain. */}
+      {loaded && tournaments.length === 0 && roster.length === 0 ? (
+        <ImportPrompt className="mt-4" />
       ) : null}
 
       <ul className="space-y-3">

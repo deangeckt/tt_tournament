@@ -65,3 +65,84 @@ export function snakeIntoGroups(orderedPlayers: readonly PlayerId[], groupCount:
 export function drawOrder(playerIds: readonly PlayerId[], rng: Rng): PlayerId[] {
   return shuffle(playerIds, rng)
 }
+
+/**
+ * Rank order, strongest first — the spine of a banded draw.
+ *
+ * Shuffled before it is sorted, not after: `sort` is stable, so equal ranks would
+ * otherwise keep the order they arrived in, which is the roster's Hebrew alphabet.
+ * Shuffling first hands the seed exactly the decisions rank does not make — ties, and
+ * the unranked, who are all tied with each other — and nothing else.
+ */
+export function rankedOrder(
+  playerIds: readonly PlayerId[],
+  ranks: Readonly<Record<PlayerId, number>>,
+  rng: Rng,
+): PlayerId[] {
+  return shuffle(playerIds, rng).sort((a, b) => {
+    const ra = ranks[a]
+    const rb = ranks[b]
+    // Not `(ranks[a] ?? -Infinity) - ...`: two unranked players would subtract
+    // -Infinity from -Infinity and compare NaN, which sorts unpredictably.
+    if (ra === undefined) return rb === undefined ? 0 : 1
+    if (rb === undefined) return -1
+    return rb - ra
+  })
+}
+
+/**
+ * Arrange a rank order so that `snakeIntoGroups` deals each band into one group.
+ *
+ * The snake exists to *spread* consecutive draw positions across groups, which is the
+ * right default for an unseeded draw and the exact opposite of what banding wants.
+ * Rather than give the group builder a second mode, this inverts the snake: it works
+ * out which positions each group will be handed and drops a whole band on them. Group
+ * A comes out as the strongest players, group B the next, and every match inside a
+ * group is between near neighbours.
+ */
+export function bandedGroupOrder(sorted: readonly PlayerId[], groupCount: number): PlayerId[] {
+  const positionsOf: number[][] = Array.from({ length: groupCount }, () => [])
+  for (let position = 0; position < sorted.length; position++) {
+    const row = Math.floor(position / groupCount)
+    const col = position % groupCount
+    positionsOf[row % 2 === 0 ? col : groupCount - 1 - col].push(position)
+  }
+
+  const out = new Array<PlayerId>(sorted.length)
+  let next = 0
+  for (const positions of positionsOf) {
+    for (const position of positions) out[position] = sorted[next++]
+  }
+  return out
+}
+
+/**
+ * Arrange a rank order so that `seedBracketSlots` pairs rank neighbours in round one.
+ *
+ * Standard seeding pairs seed s with seed size+1-s — best against worst — and hands
+ * the byes to the lowest seed *numbers*, which are the top of the draw. Banding keeps
+ * the second half of that (the strongest still get the byes; a bye is worth most to
+ * the player most likely to use it) and inverts the first: each pair of bracket seats
+ * is filled with two consecutive names off the rank list instead of one from each end.
+ *
+ * Written as a closed form over the seed pairs rather than by permuting the finished
+ * bracket, so `seedBracketSlots` and `bracketSeedOrder` stay exactly as they are.
+ */
+export function bandedBracketOrder(sorted: readonly PlayerId[]): PlayerId[] {
+  if (sorted.length === 0) return []
+  const size = nextPowerOfTwo(Math.max(sorted.length, 2))
+  const byes = size - sorted.length
+
+  const out = new Array<PlayerId>(sorted.length)
+  // Seeds 1..byes are the ones standard seeding leaves unopposed, so they take the
+  // top of the rank list one for one.
+  for (let seed = 1; seed <= byes; seed++) out[seed - 1] = sorted[seed - 1]
+
+  let next = byes
+  for (let seed = byes + 1; seed <= size / 2; seed++) {
+    out[seed - 1] = sorted[next]
+    out[size - seed] = sorted[next + 1]
+    next += 2
+  }
+  return out
+}
