@@ -111,6 +111,14 @@ export function EditSheet({
   // one, or at a club that does not use TTTM, is banded by nothing and says nothing.
   const rankedCount = level.playerIds.filter((id) => level.ranks?.[id] !== undefined).length
   const banded = rankedCount > 0
+  // A fully ranked field also has its matches put in order, not only drawn — but only
+  // where there are groups to order. A hand-arranged draw keeps it: the order is
+  // planned off the ranks rather than off where the players were seated.
+  const fullyRanked = rankedCount === level.playerIds.length
+  const planned =
+    fullyRanked &&
+    level.playerIds.length > 1 &&
+    (level.config.format === 'roundRobin' || level.config.format === 'groupsKnockout')
   const recommended = suggestedConfig(level.playerIds.length)
   const suggestFormat = playedCount === 0 && recommended.format !== level.config.format
 
@@ -595,9 +603,10 @@ export function EditSheet({
                   ? t('draw.rankedHint')
                   : t('run.seedHint')}
             </p>
-            {banded && !level.manualOrder && rankedCount === level.playerIds.length ? (
+            {banded && !level.manualOrder && fullyRanked ? (
               <p className="mt-1 text-sm">{t('draw.rankedSettled')}</p>
             ) : null}
+            {planned ? <p className="mt-1 text-sm">{t('draw.orderPlanned')}</p> : null}
           </div>
         </div>
 

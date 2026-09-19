@@ -19,15 +19,23 @@
          and the JSON-LD naming the club. Absolute urls are unavoidable here (canonical,
          og:image and sitemap all forbid relative ones), so they are the one place a fork
          has to edit; the Vite base stays relative. -->
-    <title>ניהול תחרויות טניס שולחן — דרך בן, חיפה</title>
+    <!-- The sport has two names in Hebrew and a manager searching for this app is as
+         likely to type either, so "פינג פונג" sits in the title beside "טניס שולחן"
+         rather than being left to the keywords tag nobody reads. The unspaced spelling
+         "פינגפונג" is a separate token to a search engine, so it appears too — but in
+         the visible copy (noscript here, the home screen's empty state in the app),
+         because a synonym a reader never sees is a hidden keyword. "ארגון" is in the
+         description for the same reason: people search for organising a competition as
+         often as for managing one. -->
+    <title>ניהול תחרות טניס שולחן (פינג פונג) בחינם — דרך בן חיפה</title>
     <meta
       name="description"
-      content="אפליקציה חינמית לניהול תחרות טניס שולחן מהדפדפן: הגרלת בתים, נוק-אאוט, הזנת תוצאות וטבלאות דירוג חיות לפי חוקי ITTF. בעברית, בלי הרשמה. מבית דרך בן — טניס שולחן חיפה."
+      content="אפליקציה חינמית לארגון וניהול תחרות טניס שולחן (פינג פונג): הגרלה, בתים ונוק-אאוט, הזנת תוצאות וטבלאות דירוג לפי חוקי ITTF. הכול בדפדפן, בעברית, בלי הרשמה."
     />
     <!-- Google ignores this one; Bing, Yandex and a few Israeli aggregators still read it. -->
     <meta
       name="keywords"
-      content="ניהול תחרות טניס שולחן, ניהול תחרויות טניס שולחן, תחרות טניס שולחן, טורניר טניס שולחן, ניהול טורניר טניס שולחן, דרך בן, דרך בן טניס שולחן, טניס שולחן חיפה, טבלת בתים, הגרלת טורניר, ITTF, table tennis tournament manager"
+      content="ניהול תחרות טניס שולחן, ארגון תחרות טניס שולחן, ניהול תחרויות טניס שולחן, תחרות טניס שולחן, ניהול תחרות פינג פונג, ארגון תחרות פינג פונג, תחרות פינג פונג, תחרות פינגפונג, ניהול תחרות פינגפונג, טורניר טניס שולחן, טורניר פינג פונג, ניהול טורניר טניס שולחן, תוכנה לניהול תחרויות טניס שולחן בחינם, דרך בן, דרך בן טניס שולחן, טניס שולחן חיפה, טבלת בתים, הגרלת טורניר, ITTF, table tennis tournament manager, ping pong tournament"
     />
     <link rel="canonical" href="https://deangeckt.github.io/tt_tournament/" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
@@ -36,7 +44,11 @@
     <meta name="apple-mobile-web-app-title" content="טורנירים" />
 
     <!-- These links are read far more often than they are searched for: they go into a
-         WhatsApp group, and the card is the first thing anyone sees of the app. -->
+         WhatsApp group, and the card is the first thing anyone sees of the app. Hence
+         og:title keeps the club's own wording while <title> above is written for the
+         search result — a club member reading the card already knows what the sport is
+         called, and the plural "תחרויות" the card carries is a phrasing the title's
+         singular does not. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="דרך בן — טניס שולחן חיפה" />
     <meta property="og:locale" content="he_IL" />
@@ -44,7 +56,7 @@
     <meta property="og:title" content="ניהול תחרויות טניס שולחן — דרך בן, חיפה" />
     <meta
       property="og:description"
-      content="הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
+      content="ארגון וניהול תחרות טניס שולחן (פינג פונג) בחינם: הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
     />
     <meta property="og:url" content="https://deangeckt.github.io/tt_tournament/" />
     <meta property="og:image" content="https://deangeckt.github.io/tt_tournament/og.jpg" />
@@ -55,7 +67,7 @@
     <meta name="twitter:title" content="ניהול תחרויות טניס שולחן — דרך בן, חיפה" />
     <meta
       name="twitter:description"
-      content="הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
+      content="ארגון וניהול תחרות טניס שולחן (פינג פונג) בחינם: הגרלה, בתים ונוק-אאוט, תוצאות וטבלאות דירוג חיות לפי חוקי ITTF — הכול בדפדפן, בלי הרשמה ובלי שרת."
     />
     <meta name="twitter:image" content="https://deangeckt.github.io/tt_tournament/og.jpg" />
 
@@ -71,9 +83,15 @@
             "@type": "WebApplication",
             "@id": "https://deangeckt.github.io/tt_tournament/#app",
             "name": "ניהול תחרויות טניס שולחן",
-            "alternateName": ["Table Tennis Tournament Manager", "טורנירים - דרך בן"],
+            "alternateName": [
+              "ניהול תחרויות פינג פונג",
+              "ארגון תחרות טניס שולחן",
+              "Table Tennis Tournament Manager",
+              "טורנירים - דרך בן"
+            ],
             "url": "https://deangeckt.github.io/tt_tournament/",
-            "description": "אפליקציה חינמית לניהול תחרות טניס שולחן: הגרלה אקראית עם זרע שמור, בתים, נוק-אאוט וליגה, הזנת תוצאות מהירה או מפורטת, וטבלאות דירוג חיות לפי שרשרת שובר השוויון של ITTF. הכול רץ בדפדפן, בלי שרת ובלי חשבון.",
+            "description": "אפליקציה חינמית לארגון וניהול תחרות טניס שולחן (פינג פונג): הגרלה אקראית עם זרע שמור, בתים, נוק-אאוט וליגה, הזנת תוצאות מהירה או מפורטת, וטבלאות דירוג חיות לפי שרשרת שובר השוויון של ITTF. הכול רץ בדפדפן, בלי שרת ובלי חשבון.",
+            "keywords": "ניהול תחרות טניס שולחן, ארגון תחרות טניס שולחן, תחרות פינג פונג, ניהול תחרות פינגפונג, טורניר טניס שולחן, table tennis tournament manager",
             "applicationCategory": "SportsApplication",
             "operatingSystem": "Any (web browser)",
             "browserRequirements": "Requires JavaScript",
@@ -98,8 +116,8 @@
             "@id": "https://deangeckt.github.io/tt_tournament/#club",
             "name": "דרך בן — טניס שולחן חיפה",
             "alternateName": ["דרך בן", "Derech Ben Table Tennis Haifa"],
-            "sport": "טניס שולחן",
-            "description": "חוגי טניס שולחן ותחרויות בחיפה ובצפון.",
+            "sport": ["טניס שולחן", "פינג פונג"],
+            "description": "חוגי טניס שולחן (פינג פונג) ותחרויות בחיפה ובצפון.",
             "areaServed": { "@type": "City", "name": "חיפה" },
             "logo": "https://deangeckt.github.io/tt_tournament/og.jpg",
             "sameAs": [
@@ -141,9 +159,9 @@
          and text hidden from readers but left for crawlers is the definition of
          cloaking. Googlebot renders the app itself and reads the real headings. -->
     <noscript>
-      <h1>ניהול תחרויות טניס שולחן</h1>
+      <h1>ניהול תחרויות טניס שולחן (פינג פונג)</h1>
       <p>
-        אפליקציה חינמית וקוד פתוח לניהול תחרות טניס שולחן במועדון: מזינים את המשתתפים,
+        אפליקציה חינמית וקוד פתוח לארגון וניהול תחרות טניס שולחן: מזינים את המשתתפים,
         מגרילים את הטורניר, מקישים תוצאות תוך כדי המשחקים, והטבלאות והבתים מתעדכנים לבד.
         הכול רץ בדפדפן — בלי שרת, בלי חשבון ובלי מעקב.
       </p>
@@ -156,6 +174,12 @@
         <li>שיתוף התוצאות בקישור או בקוד QR, והדפסה ל-PDF.</li>
         <li>רשימת שחקנים קבועים עם תמונה, מאזן קריירה והיסטוריית תחרויות.</li>
       </ul>
+      <h2>למי זה מתאים</h2>
+      <p>
+        לכל מי שמארגן תחרות פינגפונג ולא רוצה לנהל אותה על דף: מועדון טניס שולחן, בית
+        ספר, מקום עבודה או ערב חברים. מארבעה משתתפים ועד כמה רמות במקביל באותו ערב,
+        ובלי להתקין שום דבר — פותחים את הקישור בטלפון או בטאבלט ומתחילים.
+      </p>
       <p>
         הכלי נבנה עבור <strong>דרך בן — טניס שולחן חיפה</strong>, מועדון וחוגי טניס שולחן
         בחיפה ובצפון, והוא פתוח לשימוש כל מועדון.

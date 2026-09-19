@@ -26,9 +26,15 @@ export function Home() {
           <p className="mt-1 text-court-600 dark:text-court-200">{t('home.emptyHint')}</p>
           {/* Only ever read by someone who has never run a tournament here — and by
               a crawler, which lands on empty storage every time. Regulars have a
-              list instead and never see it. */}
-          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-court-600 dark:text-court-200">
+              list instead and never see it. The h1 above is the nav's own word for
+              this screen, so what the app actually does is named here, in the one
+              heading a rendering crawler finds with prose under it. */}
+          <h2 className="mt-5 text-base font-semibold">{t('home.emptyAboutTitle')}</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-court-600 dark:text-court-200">
             {t('home.emptyAbout')}
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-court-600 dark:text-court-200">
+            {t('home.emptyAboutFree')}
           </p>
         </Card>
       ) : null}

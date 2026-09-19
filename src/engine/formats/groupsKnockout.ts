@@ -1,5 +1,6 @@
 import type { Group, LevelId, Match, PlayerId, Slot } from '../types'
 import { nextPowerOfTwo, bracketSeedOrder, snakeIntoGroups } from '../draw'
+import { seedByRank } from '../schedule'
 import { generateGroupMatches } from './roundRobin'
 import { generateSingleElim } from './singleElim'
 
@@ -90,9 +91,18 @@ export function buildGroupsKnockout(
   orderedPlayers: readonly PlayerId[],
   groupCount: number,
   advancePerGroup: number,
+  /** The ranks the level was drawn against; they plan each group's running order. */
+  ranks?: Readonly<Record<PlayerId, number>>,
 ): GroupsKnockoutFixtures {
   const groups = buildGroups(levelId, orderedPlayers, groupCount)
-  const groupMatches = groups.flatMap(generateGroupMatches)
+  // Each group is planned on its own: a group where everyone is ranked gets the
+  // running order, one still holding an unranked player keeps the draw order.
+  const groupMatches = groups.flatMap((group) =>
+    generateGroupMatches(group, {
+      seeded: seedByRank(group.playerIds, ranks),
+      advance: advancePerGroup,
+    }),
+  )
   const bracket = generateSingleElim(levelId, seedQualifiers(qualifierSlots(groups, advancePerGroup)))
   return { groups, matches: [...groupMatches, ...bracket] }
 }

@@ -18,6 +18,7 @@ npm install
 npm run dev            # dev server (Vite)
 npm test               # engine unit tests, single run
 npm run test:watch     # watch mode
+npm run night          # play a ranked club night end to end and print its score sheet
 npm run lint           # oxlint (not eslint)
 npm run build          # tsc -b && vite build  → dist/
 npm run preview        # serve the production build
@@ -29,6 +30,13 @@ Running a subset of tests:
 npx vitest run src/engine/__tests__/standings.test.ts   # one file
 npx vitest run -t "three-way cycle"                     # one test by name
 ```
+
+`rankedNight.test.ts` is the one end-to-end test: it freezes ranks the way the wizard
+does, derives two levels, then plays them by repeatedly taking whatever sits at the
+head of "up next" — so it exercises the running order the way the screen does rather
+than asserting it in the abstract. `npm run night` prints the night it played; the
+runner swallows `console.log`, so the score sheet goes straight to stdout and only
+when asked for (`npm_lifecycle_event`, or `TT_SCORESHEET=1`).
 
 Vitest only picks up `src/**/*.test.ts` and runs in the `node` environment — the
 engine needs no DOM. There is no component-test setup yet; adding one means adding
@@ -136,6 +144,48 @@ order they arrived in, which is the roster's Hebrew alphabet.
 One consequence worth surfacing rather than hiding, and the edit sheet says it: in a
 field where everyone is ranked, the ranks settle the draw between them and "draw again"
 reproduces it.
+
+### The running order
+
+Ranks do one more thing after the draw: they put the matches in order. A group where
+every player carries one is played to a plan (`src/engine/schedule.ts`) instead of in
+the order the circle method happened to generate them, and the plan answers to ITTF
+3.7.5.5 — the match that decides qualification is played **last**, so the final pair on
+the table can never arrange a scoreline that suits them both. With one qualifier that
+is seeds 1 and 2; with two it is seeds 2 and 3, the top and the bottom being expected
+to have settled their own fate already. Past two qualifiers the regulation says nothing
+and neither does this.
+
+The rest is about the night running well rather than about the rules: nobody plays two
+matches in a row, and every batch in the list can go on the tables at the same time.
+Both fall out of searching over the circle method's *rounds* rather than over the
+matches. Within a round no two matches share a player, so a repeat can only happen
+across a round boundary — which leaves the first and last match of each round the only
+choices that matter, and turns fifteen factorial arrangements for a group of six into a
+short walk over five rounds. From five players up that walk finds a plan with no repeat
+in it at all. Three and four players cannot: both force exactly two, and where a repeat
+is forced it is handed to the weaker seed, who is the likelier to have just lost. A test
+brute-forces every ordering of a group of three and of four and agrees on the two.
+
+**The plan never touches a match id.** Ids keep the coordinates the *draw* gave them,
+and that is what makes the feature safe to have at all: turning it on halfway through a
+night, improving the algorithm in a later version, or a rank arriving that makes a group
+eligible, each leave every stored result attached to its match. So `round` and `order`
+on a group match say where it sits in the running order while its id says where the draw
+put it, and the two are free to disagree.
+
+It is gated on ranks because without them the seeds are draw positions out of a shuffle:
+"the top two play last" is a claim about the field's strength, and calling a shuffled
+position seed 1 would make it mean nothing. A group holding one unranked player keeps
+the draw order, and the gate is per group — half a group stage can be planned and half
+not.
+
+`schedule.ts` owns the circle method itself, in seat numbers, because the generator
+reads it as players and the planner reads it as seeds, and one implementation is better
+than two that drift. A league that publishes its own order can hand it in as config, and
+it wins over anything generated; none ships, because the tables circulating for groups of
+four and up could not be verified against the current handbook, and a wrong "official"
+order is worse than an honest generated one.
 
 ### Engine boundaries
 
@@ -452,8 +502,10 @@ this device's own history, JSON export/import from the settings screen, and the 
 wallpaper.
 
 Newest: **TTTM ranks** on a saved player — typed in, searched for by name, or read off a
-pasted link, bringing the league photograph with them — and the **banded draw** those
-ranks produce. Plus the **restore prompt** a device with no saved players now shows on
+pasted link, bringing the league photograph with them — the **banded draw** those ranks
+produce, and the **running order** they plan on top of it, which closes a group with the
+match that decides it and keeps anyone from playing twice in a row. Plus the **restore
+prompt** a device with no saved players now shows on
 the home screen and the player list, since a manager arriving on a new phone has the
 whole club in a backup file and should not be retyping twenty names. Its confirmation is
 picked up in `App.tsx` rather than on the settings screen, because an import can now be
@@ -490,7 +542,17 @@ Not built yet:
   losers-bracket drop mapping is genuinely intricate and deserves property tests
   (assert: no two players meet twice before the grand final; every non-champion has
   exactly two losses) rather than a hand-checked implementation.
-- Table assignment queue. `Tournament.tableAssignments` exists and is still unused.
+- **A result-dependent group order.** The World Cup runs a group of three as seed 2 v
+  seed 3, then seed 1 against the *loser*, then seed 1 against the *winner* — the closing
+  pair is unknown until the first match ends. `Slot` already carries `winnerOf` and
+  `loserOf`, and `schedule.ts` returns seed references rather than players precisely so
+  this can be another arm of `SeedPair` rather than a new signature. What stops it is the
+  other end: `standings.ts` and `resolve.ts` both read a group match as two `player`
+  slots, and a printed sheet that cannot name its own last two matches is a real cost
+  against a small gain for one group size.
+- Table assignment queue. `Tournament.tableAssignments` exists and is still unused. The
+  running order now hands it a batch at a time — every match sharing a `round` inside a
+  group can start together — so the queue has something to consume when it lands.
 - Head-to-head is computed (`engine/stats.ts`) but nothing shows it yet.
 
 ## Gotchas

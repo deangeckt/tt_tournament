@@ -17,6 +17,7 @@ import {
   rankedOrder,
   seedBracketSlots,
 } from './draw'
+import { seedByRank } from './schedule'
 import { generateGroupMatches, singleGroup } from './formats/roundRobin'
 import { generateSingleElim } from './formats/singleElim'
 import { buildGroupsKnockout } from './formats/groupsKnockout'
@@ -95,8 +96,10 @@ function drawnOrder(level: Level): PlayerId[] {
   const sorted = rankedOrder(level.playerIds, ranks, rng)
   switch (level.config.format) {
     case 'roundRobin':
-      // Everyone meets everyone, so the order is only the order matches are listed
-      // in. Strongest first makes the running order read like the standings will.
+      // Everyone meets everyone, so there is no banding to do — the draw order only
+      // decides how the field is listed, and strongest first reads like the standings
+      // will. What order the matches are *played* in is planned separately, from the
+      // same ranks, in `schedule.ts`.
       return sorted
     case 'groupsKnockout':
       return bandedGroupOrder(sorted, level.config.groupCount)
@@ -171,13 +174,25 @@ export function buildFixtures(level: Level): { groups: Group[]; matches: Match[]
   switch (config.format) {
     case 'roundRobin': {
       const group = singleGroup(level.id, level.name, ordered)
-      return { groups: [group], matches: generateGroupMatches(group) }
+      // One group, and its winner is the level's champion, so one player "advances"
+      // — which is what puts the top two seeds in the closing match of the night.
+      const matches = generateGroupMatches(group, {
+        seeded: seedByRank(group.playerIds, level.ranks),
+        advance: 1,
+      })
+      return { groups: [group], matches }
     }
     case 'singleElim': {
       return { groups: [], matches: generateSingleElim(level.id, seedBracketSlots(ordered)) }
     }
     case 'groupsKnockout': {
-      return buildGroupsKnockout(level.id, ordered, config.groupCount, config.advancePerGroup)
+      return buildGroupsKnockout(
+        level.id,
+        ordered,
+        config.groupCount,
+        config.advancePerGroup,
+        level.ranks,
+      )
     }
     case 'doubleElim': {
       // Not yet implemented; the winners bracket alone keeps the app usable and the

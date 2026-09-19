@@ -7,7 +7,7 @@ export const en = {
        index.html already carries because a crawler that runs the app reads the
        *rendered* title, and the app would otherwise leave the static one in place
        only by accident. */
-    documentTitle: 'Table Tennis Tournament Manager — Derech Ben, Haifa',
+    documentTitle: 'Free Table Tennis (Ping Pong) Tournament Manager — Derech Ben, Haifa',
   },
   nav: {
     home: 'Tournaments',
@@ -38,8 +38,16 @@ export const en = {
   home: {
     empty: 'No tournaments yet.',
     emptyHint: 'Create one to get started.',
+    /* The only screen a crawler ever renders — storage is per-origin, so it lands on an
+       empty roster every time — and the only prose a first-time visitor reads. Both
+       names for the sport belong here rather than in a meta tag: a synonym nobody sees
+       is a hidden keyword, and a newcomer deciding whether this is the right app is
+       exactly who the sentence is for. */
+    emptyAboutTitle: 'Running a table tennis (ping pong) tournament, start to finish',
     emptyAbout:
-      'Table tennis tournament management, start to finish: add the competitors, let the app draw groups or a knockout bracket, then tap in scores as matches finish — the brackets and the ITTF standings update themselves. Everything stays on this device; no account, no server.',
+      'Add the competitors, let the app draw groups or a knockout bracket, then tap in scores as matches finish — the brackets and the ITTF standings update themselves. Everything stays on this device; no account, no server.',
+    emptyAboutFree:
+      'Free and open source, for organising a ping pong tournament at a club, a school or the office — from four players up to several levels running in one evening.',
     create: 'New tournament',
     resume: 'Continue',
     players_one: '{{count}} player',
@@ -248,6 +256,8 @@ export const en = {
       'The field is banded by TTTM points, so a group holds players of one standard. The code decides only what the ranks do not — the unranked, and anyone level on points. Drawing again also picks up ranks that have changed since.',
     rankedSettled:
       'Everyone here is ranked, so the ranks settle this draw between them: drawing again reproduces it unless a rank or the players change.',
+    orderPlanned:
+      'The ranks also set the running order: nobody plays two matches in a row where that can be avoided, and the match that settles a group is played last.',
   },
   share: {
     open: 'Share',
