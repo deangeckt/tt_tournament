@@ -7,9 +7,12 @@ import { tally } from '../engine/result'
 import type { PlayerId } from '../engine/types'
 import { useAppStore } from '../store/useAppStore'
 import { Button, Card, PageTitle, Score } from '../components/common/ui'
+import { BracketTree } from '../components/bracket/BracketTree'
+import { BracketViewToggle } from '../components/bracket/BracketViewToggle'
 import { GroupTable } from '../components/group/GroupTable'
 import { participantLabel, roundLabel } from '../components/match/labels'
 import { toast } from '../store/useToasts'
+import { useBracketView } from '../store/useBracketView'
 import { navigate } from '../router'
 
 /**
@@ -26,6 +29,7 @@ import { navigate } from '../router'
  */
 export function ViewShared({ payload }: { payload: string }) {
   const { t, i18n } = useTranslation()
+  const bracketView = useBracketView((s) => s.view)
   const roster = useAppStore((s) => s.roster)
   const tournaments = useAppStore((s) => s.tournaments)
   const adoptTournament = useAppStore((s) => s.adoptTournament)
@@ -110,7 +114,9 @@ export function ViewShared({ payload }: { payload: string }) {
 
       {tournament.levels.map((level) => {
         const view = resolveLevel(level, tournament.results)
-        const bracket = view.matches.filter((m) => m.match.stage !== 'group' && !m.auto && !m.vacant)
+        const knockout = view.matches.filter((m) => m.match.stage !== 'group')
+        // The list leaves byes out; the tree keeps them, since they hold its shape.
+        const bracket = knockout.filter((m) => !m.auto && !m.vacant)
         const lastRound = bracket.reduce((max, m) => Math.max(max, m.match.round), 0)
         const advancing =
           level.config.format === 'groupsKnockout' ? level.config.advancePerGroup : 0
@@ -142,7 +148,20 @@ export function ViewShared({ payload }: { payload: string }) {
 
             {bracket.length > 0 ? (
               <div>
-                <h3 className="mb-2 font-bold">{t('run.bracket')}</h3>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="font-bold">{t('run.bracket')}</h3>
+                  <BracketViewToggle />
+                </div>
+                {bracketView === 'tree' ? (
+                  <BracketTree
+                    matches={knockout}
+                    entrants={level.playerIds.length}
+                    nameOf={nameOf}
+                    groups={view.groups}
+                    bestOf={level.bestOf}
+                    champion={view.champion}
+                  />
+                ) : (
                 <div className="space-y-3">
                   {[...new Set(bracket.map((m) => m.match.round))]
                     .sort((a, b) => a - b)
@@ -193,6 +212,7 @@ export function ViewShared({ payload }: { payload: string }) {
                       </div>
                     ))}
                 </div>
+                )}
               </div>
             ) : null}
           </section>

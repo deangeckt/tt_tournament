@@ -5,6 +5,8 @@ import { useAppStore } from '../store/useAppStore'
 import { resolveLevel, type MatchView } from '../engine/resolve'
 import type { GroupId, MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
+import { BracketTree } from '../components/bracket/BracketTree'
+import { BracketViewToggle } from '../components/bracket/BracketViewToggle'
 import { GroupTable } from '../components/group/GroupTable'
 import { TiebreakSheet, type TieEntry, type TieMatch } from '../components/group/TiebreakSheet'
 import { MatchCard } from '../components/match/MatchCard'
@@ -14,10 +16,12 @@ import { EditSheet } from '../components/tournament/EditSheet'
 import { ShareSheet } from '../components/tournament/ShareSheet'
 import { Tooltip } from '../components/common/Tooltip'
 import { toast } from '../store/useToasts'
+import { useBracketView } from '../store/useBracketView'
 import { navigate } from '../router'
 
 export function Run({ id }: { id: string }) {
   const { t } = useTranslation()
+  const bracketView = useBracketView((s) => s.view)
   const current = useAppStore((s) => s.current)
   const openTournament = useAppStore((s) => s.openTournament)
   const setResult = useAppStore((s) => s.setResult)
@@ -242,25 +246,45 @@ export function Run({ id }: { id: string }) {
 
       {bracket.length > 0 ? (
         <section className="mb-7">
-          <h2 className="mb-3 text-lg font-bold">{t('run.bracket')}</h2>
-          <div className="space-y-4">
-            {[...new Set(bracket.map((m) => m.match.round))]
-              .sort((a, b) => a - b)
-              .map((round) => (
-                <div key={round}>
-                  <div className="mb-1.5 text-sm font-medium text-court-500 dark:text-court-300">
-                    {roundLabel(round, lastBracketRound, t)}
-                  </div>
-                  <div className="space-y-1.5">
-                    {bracket
-                      .filter((m) => m.match.round === round && !m.auto && !m.vacant)
-                      .map((match) => (
-                        <MatchCard key={match.match.id} view={match} {...cardProps(match.match.id)} />
-                      ))}
-                  </div>
-                </div>
-              ))}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold">{t('run.bracket')}</h2>
+            <BracketViewToggle />
           </div>
+          {bracketView === 'tree' ? (
+            <BracketTree
+              matches={bracket}
+              entrants={level.playerIds.length}
+              nameOf={nameOf}
+              groups={view.groups}
+              bestOf={level.bestOf}
+              champion={view.champion}
+              flashKey={(matchId) => cardProps(matchId).flashKey}
+              onOpen={setEditing}
+            />
+          ) : (
+            <div className="space-y-4">
+              {[...new Set(bracket.map((m) => m.match.round))]
+                .sort((a, b) => a - b)
+                .map((round) => (
+                  <div key={round}>
+                    <div className="mb-1.5 text-sm font-medium text-court-500 dark:text-court-300">
+                      {roundLabel(round, lastBracketRound, t)}
+                    </div>
+                    <div className="space-y-1.5">
+                      {bracket
+                        .filter((m) => m.match.round === round && !m.auto && !m.vacant)
+                        .map((match) => (
+                          <MatchCard
+                            key={match.match.id}
+                            view={match}
+                            {...cardProps(match.match.id)}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
         </section>
       ) : null}
 

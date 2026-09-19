@@ -252,6 +252,16 @@ textarea {
     display: table-header-group;
   }
 
+  /*
+   * The knockout tree fits itself to the screen; paper is a different width. The
+   * component works a factor out from its own natural width, so a 16-player tree
+   * fits a portrait sheet and an 8-player one is left at full size rather than
+   * shrunk for no reason. Important because the screen fit is set inline.
+   */
+  .tt-tree {
+    zoom: var(--tt-print-zoom, 1) !important;
+  }
+
   th,
   td {
     border-bottom: 1px solid #ddd;

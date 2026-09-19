@@ -459,6 +459,26 @@ whole club in a backup file and should not be retyping twenty names. Its confirm
 picked up in `App.tsx` rather than on the settings screen, because an import can now be
 started from three places and the reload can land on any of them.
 
+The knockout stage has two views, switched beside its heading and remembered per device
+(`store/useBracketView.ts`): the **list** of match cards by round, which is the default
+because it fits a phone, and the **tree** (`components/bracket/BracketTree.tsx`), one
+column per round collapsing to a champion leaf. The geometry is a pure function
+(`components/bracket/layout.ts`, tested) that positions everything from the inline
+start, so one set of coordinates reads right-to-left in Hebrew; the connectors are
+logical borders on empty boxes rather than an SVG for the same reason. Byes are drawn in
+the tree — they hold its shape and show who was handed one — and hidden in the list.
+The tree is drawn to the size of the *field*, not of the bracket: the engine rightly
+starts six qualifiers at the quarter-finals, but a club that entered twelve reads its
+knockout as 1/8, 1/4, 1/2, final, so `roundsForField` sets the rounds shown and
+`layoutBracket` pads the drawing with *seats* — an entrant walking over a bye into the
+first real match — leaving the chairs a bye would sit in empty. Eight players get an
+eight-tree. Seats exist only in the layout: no match id, no score, nothing stored. The
+tree never scrolls: it measures its frame, narrows the columns first and scales the
+drawing after, because a bracket that has to be panned is not one picture.
+Nodes open the same score sheet as the cards, and the read-only shared view offers the
+same switch without it. On paper the tree scales itself to the sheet through
+`--tt-print-zoom`.
+
 Two things moved and are easy to look for in the wrong place: the **language and theme
 toggles** live on the settings screen, not the header, and the **draw seed** is in the
 edit sheet next to redraw and the manual draw, not on the tournament page.
