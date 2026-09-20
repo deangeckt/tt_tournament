@@ -641,15 +641,14 @@ it existed.
 
 Newest of all: an **about screen** (`routes/About.tsx`, `#/about`, the third button in
 the header) saying what the app does and — the half nobody else writes down — what it
-does not: storage that is one browser deep, a short link made by an outside service, a
-relayed and rate-limited rank lookup, double elimination unbuilt, a retirement entered as
-a walkover, a withdrawal that does not fill in the matches it leaves behind. Its copy is
-one key set at two depths: `about.<id>Title` alone is a bullet on the home screen's
-first-run card, and the same title with `about.<id>Body` under it is a section on the
-screen. Six of the thirteen lead the first-run card (`HIGHLIGHTS` in `routes/Home.tsx`),
-so there is no second list to keep in step — and a title has to read on its own, since
-half its appearances have no body under them. `README.md` is a third depth and the only
-one that can drift.
+does not: storage that is one browser deep, a short link made by an outside service,
+double elimination unbuilt, a retirement entered as a walkover, a withdrawal that does
+not fill in the matches it leaves behind. Its copy is one key set at two depths:
+`about.<id>Title` alone is a bullet on the home screen's first-run card, and the same
+title with `about.<id>Body` under it is a section on the screen. Six of the thirteen
+lead the first-run card (`HIGHLIGHTS` in `routes/Home.tsx`), so there is no second list
+to keep in step — and a title has to read on its own, since half its appearances have no
+body under them. `README.md` is a third depth and the only one that can drift.
 
 The knockout stage has two views, switched beside its heading and remembered per device
 (`store/useBracketView.ts`): the **tree** (`components/bracket/BracketTree.tsx`), one

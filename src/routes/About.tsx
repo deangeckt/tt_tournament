@@ -43,7 +43,6 @@ const LIMITS = [
   'Device',
   'Sync',
   'ShortLink',
-  'Ranks',
   'DoubleElim',
   'Retired',
   'Withdraw',
