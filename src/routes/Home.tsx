@@ -4,6 +4,21 @@ import { navigate } from '../router'
 import { Button, Card, PageTitle } from '../components/common/ui'
 import { ImportPrompt } from '../components/data/ImportPrompt'
 
+/**
+ * The six the first-run card leads with, out of the thirteen the about screen
+ * expands on. Headlines only: somebody who has just arrived is deciding whether to
+ * tap Create, not reading a manual — the rest, the consolation among them, is a tap
+ * away rather than in front of somebody who has not run anything yet.
+ */
+const HIGHLIGHTS = [
+  'formats',
+  'draw',
+  'ranks',
+  'standings',
+  'sharing',
+  'players',
+] as const
+
 export function Home() {
   const { t, i18n } = useTranslation()
   const tournaments = useAppStore((s) => s.tournaments)
@@ -36,6 +51,23 @@ export function Home() {
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-court-600 dark:text-court-200">
             {t('home.emptyAboutFree')}
           </p>
+          {/* The about screen's own headlines, so the two cannot drift. The list is
+              centred as a block but its lines are not: w-fit shrinks it to its widest
+              headline so the bullets sit in one column, which centred text would
+              scatter. */}
+          <ul className="mx-auto mt-4 w-fit max-w-md list-disc space-y-1.5 ps-5 text-start text-sm">
+            {HIGHLIGHTS.map((id) => (
+              <li key={id}>{t(`about.${id}Title`)}</li>
+            ))}
+          </ul>
+          <Button
+            variant="subtle"
+            size="sm"
+            className="mt-4"
+            onClick={() => navigate({ name: 'about' })}
+          >
+            {t('about.title')}
+          </Button>
         </Card>
       ) : null}
 

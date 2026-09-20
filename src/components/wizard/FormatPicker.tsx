@@ -3,27 +3,17 @@ import type { BestOf, FormatConfig, FormatName } from '../../engine/types'
 import {
   consolationConfig,
   consolationFieldSize,
+  defaultConfig,
   describe,
   groupSizes,
+  isImplemented,
   minimumPlayers,
-  suggestGroupCount,
   validateConfig,
 } from '../../engine/advisor'
 import { FormatDiagram } from './FormatDiagram'
 import { Chip, Ltr } from '../common/ui'
 
 const ORDER: FormatName[] = ['groupsKnockout', 'roundRobin', 'singleElim', 'doubleElim']
-
-function defaultConfigFor(format: FormatName, playerCount: number): FormatConfig {
-  if (format === 'groupsKnockout') {
-    return {
-      format,
-      groupCount: suggestGroupCount(playerCount),
-      advancePerGroup: 2,
-    }
-  }
-  return { format } as FormatConfig
-}
 
 export function FormatPicker({
   value,
@@ -46,12 +36,22 @@ export function FormatPicker({
     <div className="space-y-3">
       {ORDER.map((format) => {
         const selected = value.format === format
-        const config = selected ? value : defaultConfigFor(format, playerCount)
+        const config = selected ? value : defaultConfig(format, playerCount)
         const shape = describe(config, playerCount, bestOf, tableCount)
         const problem = validateConfig(config, playerCount)
         // Too small a field for this format at all — not a choice the user can make
         // yet, so lock the card rather than let them select an undrawable level.
         const locked = playerCount < minimumPlayers(format)
+        // Two different reasons a card cannot be taken, kept apart because the words
+        // under it are different: too small a field is a thing the manager can fix by
+        // adding players, a missing generator is not.
+        const unbuilt = !isImplemented(format)
+        const unavailable = locked || unbuilt
+        // A level drawn before this card was locked — or arriving in a share link from
+        // a device that never had it — still carries the format, and greying the card
+        // it is set to would hide which one that is. It keeps its ring and says what it
+        // is actually running as.
+        const dimmed = locked || (unbuilt && !selected)
         const hours = shape.estimatedMinutes / 60
 
         const groupOptions = selected && !locked && config.format === 'groupsKnockout'
@@ -64,7 +64,7 @@ export function FormatPicker({
           <div
             key={format}
             className={`overflow-hidden rounded-2xl transition-all duration-150 ${
-              locked
+              dimmed
                 ? 'bg-white opacity-55 ring-1 ring-court-100 dark:bg-court-900 dark:ring-court-800'
                 : selected
                   ? 'bg-court-600/10 ring-2 ring-court-500 dark:bg-court-500/15'
@@ -73,25 +73,25 @@ export function FormatPicker({
           >
             <button
               type="button"
-              disabled={locked}
-              onClick={() => onChange(defaultConfigFor(format, playerCount))}
+              disabled={unavailable}
+              onClick={() => onChange(defaultConfig(format, playerCount))}
               aria-pressed={selected}
               className={`flex w-full items-stretch gap-3 p-3 text-start transition-colors duration-150 ${
-                locked
+                unavailable
                   ? 'cursor-not-allowed'
                   : selected
                     ? 'active:scale-[0.99]'
                     : 'hover:bg-court-50 active:scale-[0.99] dark:hover:bg-court-800'
               }`}
             >
-              <div className={`h-20 w-20 shrink-0 self-center sm:w-24 ${locked ? 'grayscale' : ''}`}>
+              <div className={`h-20 w-20 shrink-0 self-center sm:w-24 ${dimmed ? 'grayscale' : ''}`}>
                 <FormatDiagram format={format} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{t(`format.${format}`)}</span>
-                  {locked ? <LockIcon /> : null}
-                  {!locked && format === recommended ? (
+                  {unavailable ? <LockIcon /> : null}
+                  {!unavailable && format === recommended ? (
                     <span className="rounded-full bg-ball-500/20 px-2 py-0.5 text-xs font-medium text-ball-600">
                       ★
                     </span>
@@ -101,7 +101,15 @@ export function FormatPicker({
                   {t(`format.${format}Hint`)}
                 </p>
 
-                {problem ? (
+                {unbuilt ? (
+                  /* Deliberately in place of the match count, the per-player minimum
+                     and the duration: describe() answers for the format as designed,
+                     and printing 2n-2 matches under a card that will run as a single
+                     elimination is the mis-sell itself, not the card being offered. */
+                  <p className="mt-2 text-sm font-medium text-court-600 dark:text-court-200">
+                    {selected ? t('format.notBuiltFallback') : t('format.notBuilt')}
+                  </p>
+                ) : problem ? (
                   // Locked is a requirement, not a mistake: red is reserved for a
                   // configuration the user actually chose and has to fix.
                   <p
@@ -240,8 +248,9 @@ function ConsolationOption({
 }
 
 /**
- * Marks a format the current field is too small to run. Decorative only — the card
- * spells the requirement out in words beside it, since a glyph is not a reason.
+ * Marks a format that cannot be taken — too small a field, or no generator behind it
+ * yet. Decorative only: the card spells out which of the two in words beside it,
+ * since a glyph is not a reason.
  */
 function LockIcon() {
   return (

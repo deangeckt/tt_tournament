@@ -175,9 +175,21 @@ export function Settings() {
         <p className="mt-1 text-court-600 dark:text-court-200">{t('settings.storageHint')}</p>
       </Card>
 
+      {/* The two lines that were the whole of "about" until the screen existed. They
+          stay because this is where somebody looking for a version or a licence
+          arrives, and the button is how they get the rest — one page, not two
+          descriptions of the same app drifting apart. */}
       <Card>
         <h2 className="text-lg font-bold">{t('settings.aboutTitle')}</h2>
         <p className="mt-1 text-court-600 dark:text-court-200">{t('settings.aboutText')}</p>
+        <Button
+          variant="subtle"
+          size="sm"
+          className="mt-3"
+          onClick={() => navigate({ name: 'about' })}
+        >
+          {t('about.title')}
+        </Button>
       </Card>
     </>
   )

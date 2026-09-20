@@ -54,6 +54,105 @@ export const en = {
     players_two: '{{count}} players',
     players_other: '{{count}} players',
   },
+  /* The about screen, and the six headlines the home screen's empty state borrows.
+     One key set at two depths: a title alone is a bullet on the first-run card, a
+     title with its body is a section here. Two lists would have drifted apart by
+     the second feature that landed. */
+  about: {
+    title: 'About',
+    lead: 'A free, open-source app for running a table tennis tournament: enter the competitors, draw the tournament, tap in scores — the brackets and standings update themselves. All in your browser, with no account and no server.',
+    featuresTitle: 'What it does',
+
+    formatsTitle: 'Three ways to run the tournament: groups then a knockout, a round robin, or a straight knockout',
+    formatsBody:
+      'Chosen per level. The app recommends one for the size of the field, and each card says in advance how many matches the tournament holds, how many each player is guaranteed, and how long it takes.',
+
+    levelsTitle: 'Several levels in one tournament',
+    levelsBody:
+      'A, B and C side by side, each with its own format and match length. A player belongs to exactly one level.',
+
+    drawTitle: 'A draw anyone can replay — or arrange by hand',
+    drawBody:
+      'Random, but the seed is stored and shown, so anyone can run it again and see it was not arranged in advance. Given ranks it pairs players of a similar standard.',
+
+    ranksTitle: 'Real ranking points from the Israeli league (TTTM)',
+    ranksBody:
+      'Add a player straight out of the league database — search by name, paste a link to their page, or type the number — and they arrive with their true ranking points and their photograph. Ranks are frozen at the draw, so a revision later in the season never changes a night already played.',
+
+    orderTitle: 'The order the matches are played in',
+    orderBody:
+      'In a fully ranked group the match that decides qualification is played last, as the ITTF regulation asks, and nobody plays two matches in a row.',
+
+    consolationTitle: 'A consolation event — knocked out, still playing',
+    consolationBody:
+      'Everyone the main draw knocks out plays a second competition in the same format, so the tournament does not end for half the room after one match. On by default; one tap turns it off.',
+
+    scoringTitle: 'Scores in one tap, or game by game',
+    scoringBody:
+      'Quick entry takes the result in one tap; detailed entry takes every game and checks as you type that it is legal. Walkovers by button, and an undo on every change.',
+
+    standingsTitle: 'Standings that keep themselves up to date, with ITTF tiebreaks',
+    standingsBody:
+      'Match points, head-to-head, game ratio, point ratio, then a lot — the chain restarting from the top on every split. The table says what separated two players, and missing game scores can be filled in from it.',
+
+    editingTitle: 'Everything can be corrected mid-tournament',
+    editingBody:
+      'Correcting an early score re-derives everything downstream. Add a level, move a player, change a format, mark somebody withdrawn — and anything that would destroy results asks first.',
+
+    playersTitle: 'A saved list of regular players, with their tournament history and career record',
+    playersBody:
+      'Each player has a card with their photo, rank, tournaments, titles, wins and losses, and every tournament they played in — tapping through to the tournament itself. It is all derived, so correcting an old score corrects the record too.',
+
+    sharingTitle: 'Share it, scan it, print it',
+    sharingBody:
+      'A read-only link carries the whole tournament inside it, with a QR code, a text summary for WhatsApp or email, and print to PDF.',
+
+    backupTitle: 'History that moves between devices',
+    backupBody:
+      'Back everything up to one file and import it on another phone. A tournament from a share link can be added to your history, with players you already have recognised by name.',
+
+    deviceTitle: 'Hebrew and English, dark mode, built for a phone',
+    deviceBody:
+      'Right-to-left in Hebrew, left-to-right in English, light or dark theme — all on the settings screen. Every control is sized for a thumb.',
+
+    limitsTitle: 'Worth knowing',
+    limitsLead: 'Results you are going to rely on are worth knowing the shape of the thing holding them.',
+
+    limitDeviceTitle: 'Everything is stored in this browser, and only here',
+    limitDeviceBody:
+      'No account, no server. Another browser, another phone or a private window is an empty copy, and clearing site data erases everything — keep an exported backup.',
+
+    limitSyncTitle: 'Nothing syncs by itself',
+    limitSyncBody:
+      'Two devices running the same tournament keep two separate records. Moving history means a backup file or a share link.',
+
+    limitShortLinkTitle: 'A shortened link is made by an outside service',
+    limitShortLinkBody:
+      'The full link uploads nothing, but it is far too long to paste into a chat, so it is shortened automatically — and that does hand the tournament to an outside service.',
+
+    limitDoubleElimTitle: 'Double elimination is not built yet',
+    limitDoubleElimBody:
+      'It is marked in the format picker and cannot be chosen. The other three formats are complete.',
+
+    limitRetiredTitle: 'A player retiring mid-match',
+    limitRetiredBody: 'Entered as a walkover for now — there is no separate result for it.',
+
+    limitWithdrawTitle: 'Marking somebody withdrawn',
+    limitWithdrawBody:
+      'It strikes their group results under the ITTF rule, where they played fewer than half their matches. The matches they leave behind are entered as walkovers by hand.',
+
+    limitTablesTitle: 'Tables are counted, not assigned',
+    limitTablesBody:
+      'The table count sizes what is offered as ready to play and the duration estimate. It does not put a table number on a match.',
+
+    limitOnlineTitle: 'The first load needs a connection',
+    limitOnlineBody:
+      'The page itself has to be fetched — there is no offline copy. Once it has loaded, running the tournament needs no connection.',
+
+    sourceTitle: 'Open source',
+    sourceBody: 'Built for a table tennis club in Haifa, and free for any club to use or change.',
+    source: 'Source on GitHub',
+  },
   wizard: {
     step: 'Step {{current}} of {{total}}',
     nameStep: 'Tournament details',
@@ -109,6 +208,12 @@ export const en = {
     consolationTooFew: 'Not enough players go out to run one.',
     tooFew: 'Needs at least {{count}} players.',
     advanceBlocked: 'Groups are too small for {{count}} to advance',
+    /* Double elimination has a card, a diagram and a fixture fallback, but no
+       generator — resolve.ts runs it as a single elimination. The card is locked
+       rather than removed: it is the format people ask for by name, and "not yet"
+       answers them where silence would look like an oversight. */
+    notBuilt: 'Not built yet.',
+    notBuiltFallback: 'Not built yet — this level is running as a single elimination.',
   },
   roster: {
     title: 'Regular players',
@@ -216,7 +321,10 @@ export const en = {
     players: 'Players in this level',
     playerAdded: '{{name}} added',
     playerRemoved: '{{name}} removed',
-    withdrawHint: 'Mark as withdrawn — remaining matches become walkovers',
+    /* Not 'their remaining matches become walkovers', which is what this used to
+       promise: withdrawing strikes their group results under the ITTF rule and does
+       nothing else, so the matches they leave behind are still entered by hand. */
+    withdrawHint: 'Mark as withdrawn — enter the matches they leave behind as walkovers',
     reinstateHint: 'Bring this player back',
     withdrew: '{{name}} withdrew',
     reinstated: '{{name}} is back in',

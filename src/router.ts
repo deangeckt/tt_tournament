@@ -14,6 +14,7 @@ export type Route =
   | { name: 'run'; id: string }
   | { name: 'roster' }
   | { name: 'settings' }
+  | { name: 'about' }
   /** A read-only tournament decoded straight out of the link. */
   | { name: 'view'; payload: string }
 
@@ -24,6 +25,7 @@ export function parseHash(hash: string): Route {
   if (parts[0] === 'new') return { name: 'new' }
   if (parts[0] === 'roster') return { name: 'roster' }
   if (parts[0] === 'settings') return { name: 'settings' }
+  if (parts[0] === 'about') return { name: 'about' }
   // The share payload is lz-string's URI-safe alphabet, which contains no '/', so
   // the rest of the fragment is one segment and needs no decoding.
   if (parts[0] === 'v' && parts[1]) return { name: 'view', payload: parts.slice(1).join('/') }
@@ -41,6 +43,8 @@ export function hrefFor(route: Route): string {
       return '#/roster'
     case 'settings':
       return '#/settings'
+    case 'about':
+      return '#/about'
     case 'view':
       return `#/v/${route.payload}`
     case 'run':

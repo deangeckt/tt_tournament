@@ -29,6 +29,21 @@ export function minimumPlayers(format: FormatName): number {
   }
 }
 
+/**
+ * Whether a format has a generator behind it.
+ *
+ * Double elimination does not: `resolve.ts` builds its winners bracket alone and
+ * runs the level as a single elimination. Everything about the card sells the other
+ * thing — a diagram, a second chance through the losers bracket, `2n - 2` matches
+ * and two guaranteed each — so a picker that offers it is not offering a choice, it
+ * is making a promise the draw then breaks. A predicate rather than a string, since
+ * the engine holds no user-facing copy; the picker locks the card on it and the
+ * about screen says so in words.
+ */
+export function isImplemented(format: FormatName): boolean {
+  return format !== 'doubleElim'
+}
+
 function roundRobinMatches(n: number): number {
   return (n * (n - 1)) / 2
 }
@@ -159,14 +174,42 @@ export function suggestGroupCount(playerCount: number): number {
   return Math.max(2, Math.min(byFour, Math.floor(playerCount / 3)))
 }
 
-export function suggestedConfig(playerCount: number): FormatConfig {
-  if (playerCount < 4) return { format: 'roundRobin' }
-  if (playerCount <= 6) return { format: 'roundRobin' }
-  return {
-    format: 'groupsKnockout',
-    groupCount: suggestGroupCount(playerCount),
-    advancePerGroup: 2,
+/**
+ * A fresh configuration for `format` at this field size, with the club defaults on it.
+ *
+ * The one place a format name becomes a config, so the consolation default is decided
+ * here rather than once in the recommendation and once in the picker's cards — two
+ * copies that would sooner or later disagree about whether a night runs one.
+ *
+ * **The consolation is on.** A club night is judged on whether the matches were worth
+ * playing, the same reason the draw is banded rather than seeded, and a default of off
+ * sends half the room home after one match unless someone finds the switch. Turning it
+ * off is one tap under the format card, and the card recounts the night's length the
+ * moment it moves. Absent still means off, so this changes nothing about a level that
+ * was already drawn, here or on someone else's device.
+ */
+export function defaultConfig(format: FormatName, playerCount: number): FormatConfig {
+  switch (format) {
+    case 'groupsKnockout':
+      return {
+        format,
+        groupCount: suggestGroupCount(playerCount),
+        advancePerGroup: 2,
+        consolation: true,
+      }
+    case 'singleElim':
+      return { format, consolation: true }
+    case 'roundRobin':
+      return { format }
+    case 'doubleElim':
+      return { format }
   }
+}
+
+export function suggestedConfig(playerCount: number): FormatConfig {
+  if (playerCount < 4) return defaultConfig('roundRobin', playerCount)
+  if (playerCount <= 6) return defaultConfig('roundRobin', playerCount)
+  return defaultConfig('groupsKnockout', playerCount)
 }
 
 export interface ConfigProblem {

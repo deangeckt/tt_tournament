@@ -14,14 +14,13 @@ import { NewTournament } from './routes/NewTournament'
 import { Run } from './routes/Run'
 import { Roster } from './routes/Roster'
 import { Settings } from './routes/Settings'
+import { About } from './routes/About'
 import { ViewShared } from './routes/ViewShared'
 import { Button } from './components/common/ui'
 import { Tooltip } from './components/common/Tooltip'
 import { ToastHost } from './components/common/Toast'
 import { toast } from './store/useToasts'
-
-const CLUB_URL =
-  'https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/'
+import { CLUB_URL } from './links'
 
 function Header() {
   const { t } = useTranslation()
@@ -94,6 +93,23 @@ function Header() {
             </Button>
           </Tooltip>
         ) : null}
+        {/* Last of the three, because it is the one nobody needs twice. The label
+            collapses to the glyph on a phone like its neighbours, so three controls
+            still leave the title room to truncate into. */}
+        {route.name !== 'about' ? (
+          <Tooltip label={t('about.title')} side="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2.5"
+              onClick={() => navigate({ name: 'about' })}
+              aria-label={t('about.title')}
+            >
+              <span aria-hidden="true">ℹ</span>
+              <span className="hidden sm:inline">{t('about.title')}</span>
+            </Button>
+          </Tooltip>
+        ) : null}
       </div>
     </header>
   )
@@ -150,6 +166,7 @@ export function App() {
         {route.name === 'new' && <NewTournament />}
         {route.name === 'roster' && <Roster />}
         {route.name === 'settings' && <Settings />}
+        {route.name === 'about' && <About />}
         {route.name === 'view' && <ViewShared payload={route.payload} />}
         {route.name === 'run' && <Run id={route.id} />}
       </main>

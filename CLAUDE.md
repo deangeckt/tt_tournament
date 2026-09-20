@@ -195,6 +195,14 @@ up and runs them through the same format the main draw used, and the whole featu
 one optional boolean — `config.consolation` on the two formats that eliminate anybody.
 A round robin never does; double elimination's losers bracket already is one.
 
+**It is on by default**, and `advisor.ts`'s `defaultConfig` is the single place that
+decides so — the wizard's recommendation and the picker's cards both go through it,
+because two copies of a default disagree eventually. The reasoning is the banded draw's:
+a club night is judged on whether the matches were worth playing, and a default of off
+sends half the room home after one match unless someone finds the switch. **Absent still
+means off**, so nothing retro-fits a level that was already drawn — here, or one that
+arrives in a share link from a device running an older build.
+
 The idea that makes it cheap: **a consolation is a derived sub-draw of the same level.**
 `resolveLevel` builds a synthetic `Level` whose `playerIds` are the losers, whose config
 is the same format scaled to that field, and whose seed is `` `${seed}:c` ``, then hands
@@ -627,8 +635,21 @@ started from three places and the reload can land on any of them.
 
 Newer still: the **consolation** (בית ניחומים) — a switch on the format card that sends
 everyone the main draw eliminates into a second competition in the same format, drawn
-from the same frozen ranks. Off by default, and absent on every level drawn before it
-existed.
+from the same frozen ranks. On by default on every format that eliminates anybody, one
+tap under the format card to turn off, and absent — so off — on every level drawn before
+it existed.
+
+Newest of all: an **about screen** (`routes/About.tsx`, `#/about`, the third button in
+the header) saying what the app does and — the half nobody else writes down — what it
+does not: storage that is one browser deep, a short link made by an outside service, a
+relayed and rate-limited rank lookup, double elimination unbuilt, a retirement entered as
+a walkover, a withdrawal that does not fill in the matches it leaves behind. Its copy is
+one key set at two depths: `about.<id>Title` alone is a bullet on the home screen's
+first-run card, and the same title with `about.<id>Body` under it is a section on the
+screen. Six of the thirteen lead the first-run card (`HIGHLIGHTS` in `routes/Home.tsx`),
+so there is no second list to keep in step — and a title has to read on its own, since
+half its appearances have no body under them. `README.md` is a third depth and the only
+one that can drift.
 
 The knockout stage has two views, switched beside its heading and remembered per device
 (`store/useBracketView.ts`): the **tree** (`components/bracket/BracketTree.tsx`), one
@@ -659,7 +680,12 @@ edit sheet next to redraw and the manual draw, not on the tournament page.
 Not built yet:
 
 - **Double elimination** — `resolve.ts` still falls back to a single-elimination bracket
-  for it, but most of what it needs now exists: the consolation's
+  for it, and **the format picker now locks the card** rather than selling `2n - 2`
+  matches and two guaranteed each under a draw that gives one. `advisor.isImplemented`
+  is the predicate, a machine-readable code like the rest of the engine's; the card
+  suppresses its own match count instead of quoting `describe()`, which answers for the
+  format as designed. Unlock it by deleting that predicate's one exception. Most of what
+  it needs now exists: the consolation's
   `generateConsolationBracket` **is** a losers bracket, drop mapping and all, and the
   brute force in `consolation.test.ts` is the property test this entry used to ask for.
   What is left is the end of it — the grand final, the bracket reset

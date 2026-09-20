@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { buildFixtures, resolveLevel, type LevelView } from '../resolve'
-import { consolationLevel } from '../formats/consolation'
-import { consolationConfig, consolationFieldSize, describe as shapeOf } from '../advisor'
+import { consolationLevel, hasConsolation } from '../formats/consolation'
+import {
+  consolationConfig,
+  consolationFieldSize,
+  defaultConfig,
+  describe as shapeOf,
+  suggestedConfig,
+} from '../advisor'
 import { playerStats } from '../stats'
 import type {
   FormatConfig,
@@ -322,6 +328,24 @@ describe('consolation — titles and advice', () => {
       const { view } = playOut(level)
       expect(view.total).toBe(shapeOf(config, 16, 5).matchCount)
     }
+  })
+
+  it('is on in a fresh configuration, and stays off in one that never had it', () => {
+    // Every format that eliminates anybody starts with one, from the one place a
+    // format name becomes a config — so the recommendation and the picker's cards
+    // cannot come to different conclusions about how long the night is.
+    expect(hasConsolation(defaultConfig('groupsKnockout', 16))).toBe(true)
+    expect(hasConsolation(defaultConfig('singleElim', 16))).toBe(true)
+    expect(hasConsolation(suggestedConfig(16))).toBe(true)
+    // Nobody is eliminated from these two, so there is nothing to pick up.
+    expect(hasConsolation(defaultConfig('roundRobin', 6))).toBe(false)
+    expect(hasConsolation(defaultConfig('doubleElim', 8))).toBe(false)
+
+    // Absent still means off. A level drawn before the default changed — or one
+    // arriving in a share link from a device on an older build — is untouched.
+    const before = makeLevel({ format: 'singleElim' }, 8)
+    expect(hasConsolation(before.config)).toBe(false)
+    expect(buildFixtures(before, {}).matches.some((m) => m.consolation)).toBe(false)
   })
 
   it('offers nothing to a field that eliminates nobody', () => {
