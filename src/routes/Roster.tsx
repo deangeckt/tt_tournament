@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/useAppStore'
+import { orderPlayers, usePlayerOrder } from '../store/usePlayerOrder'
 import { Avatar, Button, Card, Ltr, PageTitle, inputClass } from '../components/common/ui'
-import { Tooltip } from '../components/common/Tooltip'
 import { PlayerSheet } from '../components/player/PlayerSheet'
+import { PlayerOrderToggle } from '../components/player/PlayerOrderToggle'
 import { ImportPrompt } from '../components/data/ImportPrompt'
 import { toast } from '../store/useToasts'
 import { navigate } from '../router'
@@ -13,12 +14,13 @@ export function Roster() {
   const roster = useAppStore((s) => s.roster)
   const loaded = useAppStore((s) => s.loaded)
   const addRosterPlayer = useAppStore((s) => s.addRosterPlayer)
-  const removeRosterPlayer = useAppStore((s) => s.removeRosterPlayer)
+  const order = usePlayerOrder((s) => s.order)
   const [name, setName] = useState('')
   /** Held by id, not by object, so the sheet follows edits made inside it. */
   const [openId, setOpenId] = useState<string | null>(null)
 
   const open = roster.find((p) => p.id === openId) ?? null
+  const listed = useMemo(() => orderPlayers(roster, order), [roster, order])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -28,14 +30,6 @@ export function Roster() {
     setName('')
     const player = await addRosterPlayer(pending)
     if (player) toast(t('edit.playerAdded', { name: player.name }))
-  }
-
-  const remove = async (id: string, playerName: string) => {
-    await removeRosterPlayer(id)
-    toast(t('edit.playerRemoved', { name: playerName }), 'warn', {
-      label: t('feedback.undo'),
-      run: () => void addRosterPlayer(playerName),
-    })
   }
 
   return (
@@ -70,49 +64,49 @@ export function Roster() {
           <Card className="text-center text-court-600 dark:text-court-200">{t('roster.empty')}</Card>
         )
       ) : (
-        <ul className="divide-y divide-court-100 overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:divide-court-800 dark:bg-court-900 dark:ring-court-800">
-          {roster.map((player) => (
-            <li key={player.id} className="flex items-center">
-              {/* The row and the delete button are siblings rather than nested, so
-                  the whole name is a large tap target without swallowing the X. */}
-              <button
-                type="button"
-                onClick={() => setOpenId(player.id)}
-                className="flex min-h-14 flex-1 items-center gap-3 px-4 py-3 text-start transition hover:bg-court-50 dark:hover:bg-court-800"
-              >
-                <Avatar name={player.name} photo={player.photo} />
-                <span className="min-w-0 flex-1 truncate">{player.name}</span>
-                {/* The one number that changes how the night is drawn, so it belongs
-                    on the row rather than one tap inside it — a manager scanning for
-                    who still needs a rank should not have to open twenty sheets. */}
-                {player.rank !== undefined ? (
-                  <span className="shrink-0 rounded-lg bg-court-100 px-2 py-1 text-sm font-medium text-court-600 tabular-nums dark:bg-court-800 dark:text-court-200">
-                    <Ltr>{player.rank}</Ltr>
+        <>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-sm text-court-600 dark:text-court-200">
+              {t('roster.count', { count: roster.length })}
+            </span>
+            <div className="flex-1" />
+            <PlayerOrderToggle />
+          </div>
+
+          <ul className="divide-y divide-court-100 overflow-hidden rounded-2xl bg-white ring-1 ring-court-100 dark:divide-court-800 dark:bg-court-900 dark:ring-court-800">
+            {listed.map((player) => (
+              <li key={player.id}>
+                {/* The whole row opens the card, and the card is the only place a
+                    player can be deleted from: removing someone is not a thing that
+                    should be one stray tap away from a list you scroll. */}
+                <button
+                  type="button"
+                  onClick={() => setOpenId(player.id)}
+                  className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-court-50 dark:hover:bg-court-800"
+                >
+                  <Avatar name={player.name} photo={player.photo} />
+                  <span className="min-w-0 flex-1 truncate">{player.name}</span>
+                  {/* The one number that changes how the night is drawn, so it belongs
+                      on the row rather than one tap inside it — a manager scanning for
+                      who still needs a rank should not have to open twenty sheets. */}
+                  {player.rank !== undefined ? (
+                    <span className="shrink-0 rounded-lg bg-court-100 px-2 py-1 text-sm font-medium text-court-600 tabular-nums dark:bg-court-800 dark:text-court-200">
+                      <Ltr>{player.rank}</Ltr>
+                    </span>
+                  ) : null}
+                  {/* Flipped rather than swapped for a different glyph: one arrow,
+                      pointing whichever way "forward" happens to be. */}
+                  <span
+                    aria-hidden="true"
+                    className="text-court-500 rtl:-scale-x-100 dark:text-court-300"
+                  >
+                    ›
                   </span>
-                ) : null}
-                {/* Flipped rather than swapped for a different glyph: one arrow,
-                    pointing whichever way "forward" happens to be. */}
-                <span
-                  aria-hidden="true"
-                  className="text-court-500 rtl:-scale-x-100 dark:text-court-300"
-                >
-                  ›
-                </span>
-              </button>
-              <Tooltip label={t('roster.removeHint', { name: player.name })}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="me-2"
-                  onClick={() => void remove(player.id, player.name)}
-                  aria-label={t('roster.removeHint', { name: player.name })}
-                >
-                  ✕
-                </Button>
-              </Tooltip>
-            </li>
-          ))}
-        </ul>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       <PlayerSheet player={open} onClose={() => setOpenId(null)} />

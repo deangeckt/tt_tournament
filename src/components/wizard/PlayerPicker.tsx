@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../store/useAppStore'
-import { Button, Chip, inputClass } from '../common/ui'
+import { orderPlayers, usePlayerOrder } from '../../store/usePlayerOrder'
+import { Button, Chip, Ltr, chipOffClass, chipOnClass, inputClass } from '../common/ui'
 import { Tooltip } from '../common/Tooltip'
+import { PlayerSheet } from '../player/PlayerSheet'
+import { PlayerOrderToggle } from '../player/PlayerOrderToggle'
 import type { PlayerId } from '../../engine/types'
 
 /**
@@ -34,9 +37,13 @@ export function PlayerPicker({
   const { t } = useTranslation()
   const roster = useAppStore((s) => s.roster)
   const addRosterPlayer = useAppStore((s) => s.addRosterPlayer)
+  const order = usePlayerOrder((s) => s.order)
   const [name, setName] = useState('')
+  /** The player whose card is open, held by id so the sheet follows edits made in it. */
+  const [openId, setOpenId] = useState<PlayerId | null>(null)
 
   const chosen = new Set(selected)
+  const open = roster.find((p) => p.id === openId) ?? null
 
   const toggle = (id: PlayerId) => {
     if (elsewhere.has(id)) {
@@ -64,9 +71,21 @@ export function PlayerPicker({
 
   // Free players first, then the ones another level is holding: the common tap is at
   // the front, and the moves are grouped together at the end where they read as a
-  // deliberate act rather than a slip.
-  const free = roster.filter((p) => !elsewhere.has(p.id))
-  const held = roster.filter((p) => elsewhere.has(p.id))
+  // deliberate act rather than a slip. The chosen order runs inside each half, not
+  // across the two, so the split survives it.
+  const { free, held } = useMemo(
+    () => ({
+      free: orderPlayers(
+        roster.filter((p) => !elsewhere.has(p.id)),
+        order,
+      ),
+      held: orderPlayers(
+        roster.filter((p) => elsewhere.has(p.id)),
+        order,
+      ),
+    }),
+    [roster, elsewhere, order],
+  )
 
   return (
     <div>
@@ -83,9 +102,8 @@ export function PlayerPicker({
         </Button>
       </form>
 
-      <div className="mb-2 flex items-center gap-3 text-sm text-court-600 dark:text-court-200">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-court-600 dark:text-court-200">
         <span>{t('roster.selected', { count: selected.length })}</span>
-        <div className="flex-1" />
         {free.length > 0 ? (
           <button
             type="button"
@@ -97,10 +115,16 @@ export function PlayerPicker({
           </button>
         ) : null}
         {selected.length > 0 ? (
-          <button type="button" className="rounded-lg px-2 py-1 underline underline-offset-2 transition hover:bg-court-100 dark:hover:bg-court-800" onClick={() => onChange([])}>
+          <button
+            type="button"
+            className="rounded-lg px-2 py-1 underline underline-offset-2 transition hover:bg-court-100 dark:hover:bg-court-800"
+            onClick={() => onChange([])}
+          >
             {t('roster.clearSelection')}
           </button>
         ) : null}
+        <div className="flex-1" />
+        {roster.length > 0 ? <PlayerOrderToggle /> : null}
       </div>
 
       {roster.length === 0 ? (
@@ -112,35 +136,84 @@ export function PlayerPicker({
           {[...free, ...held].map((player) => {
             const on = chosen.has(player.id)
             const holder = elsewhere.get(player.id)
+            const dim = holder ? 'opacity-70' : ''
             return (
-              <Tooltip
-                key={player.id}
-                label={
-                  holder
-                    ? t('roster.tapToMove', { level: holder })
-                    : on
-                      ? t('roster.tapToRemove')
-                      : t('roster.tapToAdd')
-                }
-              >
-                <Chip
-                  selected={on}
-                  onClick={() => toggle(player.id)}
-                  className={`!rounded-full ${holder ? 'opacity-70' : ''}`}
+              // Two buttons in one pill rather than one nested in the other, which is
+              // invalid and would make the whole chip ambiguous to tap: the name
+              // picks, the "i" opens the card. Logical rounding, so the pill reads
+              // the same way round in both directions.
+              <span key={player.id} className="inline-flex items-stretch">
+                <Tooltip
+                  label={
+                    holder
+                      ? t('roster.tapToMove', { level: holder })
+                      : on
+                        ? t('roster.tapToRemove')
+                        : t('roster.tapToAdd')
+                  }
                 >
-                  {on ? '✓ ' : ''}
-                  {player.name}
-                  {holder ? (
-                    <span className="ms-1.5 text-xs font-normal text-court-500 dark:text-court-300">
-                      {t('roster.inLevel', { level: holder })}
+                  <Chip
+                    selected={on}
+                    onClick={() => toggle(player.id)}
+                    className={`!rounded-s-full !rounded-e-none !pe-3 ${dim}`}
+                  >
+                    {on ? '✓ ' : ''}
+                    {player.name}
+                    {/* Shown only in rank order, where it is the reason the list is
+                        arranged this way. In A–Z order it would be a number on every
+                        chip explaining nothing. */}
+                    {order === 'rank' && player.rank !== undefined ? (
+                      <span
+                        className={`ms-1.5 text-xs font-normal tabular-nums ${
+                          on ? 'text-white/80' : 'text-court-500 dark:text-court-300'
+                        }`}
+                      >
+                        <Ltr>{player.rank}</Ltr>
+                      </span>
+                    ) : null}
+                    {holder ? (
+                      <span
+                        className={`ms-1.5 text-xs font-normal ${
+                          on ? 'text-white/80' : 'text-court-500 dark:text-court-300'
+                        }`}
+                      >
+                        {t('roster.inLevel', { level: holder })}
+                      </span>
+                    ) : null}
+                  </Chip>
+                </Tooltip>
+                <Tooltip label={t('roster.openHint', { name: player.name })}>
+                  <button
+                    type="button"
+                    aria-label={t('roster.openHint', { name: player.name })}
+                    onClick={() => setOpenId(player.id)}
+                    // The unselected chip's own ring already draws the seam between
+                    // the two halves; the selected one is solid, so it needs a line.
+                    className={`${on ? chipOnClass : chipOffClass} !rounded-s-none !rounded-e-full !px-3 ${
+                      on ? 'border-s border-white/30' : ''
+                    } ${dim}`}
+                  >
+                    {/* Drawn rather than borrowed from a glyph: ⓘ is at the mercy of
+                        whichever font the device falls back to for it. */}
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current font-serif text-xs italic"
+                    >
+                      i
                     </span>
-                  ) : null}
-                </Chip>
-              </Tooltip>
+                  </button>
+                </Tooltip>
+              </span>
             )
           })}
         </div>
       )}
+
+      {/* The card is a sheet over the wizard, not a route: the draft being composed
+          behind it survives opening someone's record, which is the whole point of
+          the "i". Its history rows are therefore inert here — one tap through to an
+          old tournament would take the half-entered night with it. */}
+      <PlayerSheet player={open} onClose={() => setOpenId(null)} historyLinks={false} />
     </div>
   )
 }

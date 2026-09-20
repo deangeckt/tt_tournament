@@ -18,22 +18,48 @@ import { navigate } from '../../router'
  * themselves each time this opens, so a score corrected last week is corrected here
  * too, and there is no second copy of the truth to drift.
  */
-export function PlayerSheet({ player, onClose }: { player: Player | null; onClose: () => void }) {
+export function PlayerSheet({
+  player,
+  onClose,
+  historyLinks = true,
+}: {
+  player: Player | null
+  onClose: () => void
+  /**
+   * Whether a tournament in the history can be tapped through to.
+   *
+   * Off where the sheet is opened over work that is not saved yet — the setup
+   * wizard — because navigating away there takes a half-entered night with it. The
+   * rows still say what they say; they just stop being a door.
+   */
+  historyLinks?: boolean
+}) {
   return (
     <Sheet open={player !== null} onClose={onClose} title={player?.name}>
       {/* Keyed by player, so pointing the sheet at somebody else remounts the body
           and the name field starts from *their* name. The sheet itself never
           unmounts, so state initialised on the first open would otherwise stick. */}
-      {player ? <SheetBody key={player.id} player={player} onClose={onClose} /> : null}
+      {player ? (
+        <SheetBody key={player.id} player={player} onClose={onClose} historyLinks={historyLinks} />
+      ) : null}
     </Sheet>
   )
 }
 
-function SheetBody({ player, onClose }: { player: Player; onClose: () => void }) {
+function SheetBody({
+  player,
+  onClose,
+  historyLinks,
+}: {
+  player: Player
+  onClose: () => void
+  historyLinks: boolean
+}) {
   const { t, i18n } = useTranslation()
   const tournaments = useAppStore((s) => s.tournaments)
   const patchRosterPlayer = useAppStore((s) => s.patchRosterPlayer)
   const removeRosterPlayer = useAppStore((s) => s.removeRosterPlayer)
+  const restoreRosterPlayer = useAppStore((s) => s.restoreRosterPlayer)
   const fileInput = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(player.name)
 
@@ -127,16 +153,9 @@ function SheetBody({ player, onClose }: { player: Player; onClose: () => void })
           </p>
         ) : (
           <ul className="divide-y divide-court-100 overflow-hidden rounded-xl ring-1 ring-court-100 dark:divide-court-800 dark:ring-court-800">
-            {stats.history.map((entry) => (
-              <li key={`${entry.tournamentId}:${entry.levelId}`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose()
-                    navigate({ name: 'run', id: entry.tournamentId })
-                  }}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-start transition hover:bg-court-50 dark:hover:bg-court-800"
-                >
+            {stats.history.map((entry) => {
+              const row = (
+                <>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{entry.tournamentName}</span>
                     <span className="block text-sm text-court-500 dark:text-court-300">
@@ -155,9 +174,28 @@ function SheetBody({ player, onClose }: { player: Player; onClose: () => void })
                       {entry.won}/{entry.played}
                     </Ltr>
                   </span>
-                </button>
-              </li>
-            ))}
+                </>
+              )
+              const shared = 'flex w-full items-center gap-3 px-3 py-3 text-start'
+              return (
+                <li key={`${entry.tournamentId}:${entry.levelId}`}>
+                  {historyLinks ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose()
+                        navigate({ name: 'run', id: entry.tournamentId })
+                      }}
+                      className={`${shared} transition hover:bg-court-50 dark:hover:bg-court-800`}
+                    >
+                      {row}
+                    </button>
+                  ) : (
+                    <div className={shared}>{row}</div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
@@ -170,7 +208,12 @@ function SheetBody({ player, onClose }: { player: Player; onClose: () => void })
             onClick={() => {
               onClose()
               void removeRosterPlayer(player.id)
-              toast(t('edit.playerRemoved', { name: player.name }), 'warn')
+              // The whole record goes back, not just the name: this is now the only
+              // way to delete a player, so it is also the only way back.
+              toast(t('edit.playerRemoved', { name: player.name }), 'warn', {
+                label: t('feedback.undo'),
+                run: () => void restoreRosterPlayer(player),
+              })
             }}
           >
             🗑 {t('player.removeFromRoster')}

@@ -120,6 +120,25 @@ export const inputClass =
   'focus:ring-2 focus:ring-court-500 focus:outline-none ' +
   'dark:bg-court-900 dark:ring-court-700 dark:text-court-50'
 
+const CHIP_BASE =
+  'min-h-11 rounded-xl px-4 py-2 font-medium transition-all duration-150 active:scale-[0.97] ' +
+  'disabled:pointer-events-none disabled:opacity-30'
+
+/**
+ * The chip's two looks, without the button.
+ *
+ * Exported because a chip is sometimes *part* of a control rather than all of it —
+ * the player picker hangs an info button off each name — and two buttons sharing one
+ * pill must not be able to drift into two different-looking halves. A `Chip` there
+ * would carry `aria-pressed` with it, which is a lie about a button that opens a
+ * card rather than toggling anything.
+ */
+export const chipOnClass = CHIP_BASE + ' bg-court-600 text-white shadow-sm'
+export const chipOffClass =
+  CHIP_BASE +
+  ' bg-white text-court-700 ring-1 ring-court-200 hover:ring-court-400 hover:bg-court-50' +
+  ' dark:bg-court-900 dark:text-court-100 dark:ring-court-700 dark:hover:bg-court-800'
+
 /** A pill used for level tabs, group counts and other one-tap choices. */
 export function Chip({
   selected,
@@ -131,13 +150,58 @@ export function Chip({
       {...rest}
       type="button"
       aria-pressed={selected}
-      className={`min-h-11 rounded-xl px-4 py-2 font-medium transition-all duration-150 active:scale-[0.97]
-        disabled:pointer-events-none disabled:opacity-30 ${
-          selected
-            ? 'bg-court-600 text-white shadow-sm'
-            : 'bg-white text-court-700 ring-1 ring-court-200 hover:ring-court-400 hover:bg-court-50 dark:bg-court-900 dark:text-court-100 dark:ring-court-700 dark:hover:bg-court-800'
-        } ${className}`}
+      className={`${selected ? chipOnClass : chipOffClass} ${className}`}
     />
+  )
+}
+
+/**
+ * A two-way switch: one option lit inside a sunken track.
+ *
+ * Shared by the knockout's list/tree switch and the player list's rank/A–Z one,
+ * because they are the same gesture on the same kind of choice — change how this
+ * one section is presented, nothing else — and a second implementation would sooner
+ * or later be a second-looking control for it.
+ */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  className = '',
+}: {
+  value: T
+  options: readonly { value: T; label: ReactNode }[]
+  onChange: (value: T) => void
+  /** Names the group for a screen reader; the options themselves are just words. */
+  label: string
+  className?: string
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className={`no-print inline-flex rounded-xl bg-court-100 p-1 dark:bg-court-800 ${className}`}
+    >
+      {options.map((option) => {
+        const selected = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={`min-h-11 rounded-lg px-3.5 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
+              selected
+                ? 'bg-white text-court-900 shadow-sm dark:bg-court-900 dark:text-court-50'
+                : 'text-court-600 hover:text-court-900 dark:text-court-200 dark:hover:text-white'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

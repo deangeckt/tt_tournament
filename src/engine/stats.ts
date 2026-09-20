@@ -103,7 +103,9 @@ export function playerStats(
         record.gamesAgainst += side === 'a' ? t.gamesB : t.gamesA
       }
 
-      const group = view.groups.find((g) => g.playerIds.includes(playerId))
+      // The main draw's group, never the consolation's: with a consolation running, a
+      // player sits in two tables, and the one their record reports is the first.
+      const group = view.groups.find((g) => !g.consolation && g.playerIds.includes(playerId))
       const row = group
         ? view.standings.get(group.id)?.find((r) => r.playerId === playerId)
         : undefined

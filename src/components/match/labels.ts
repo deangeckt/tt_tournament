@@ -31,8 +31,21 @@ export function participantLabel(
  * Name a knockout round the way a room full of players would: the last round is the
  * final, the one before it the semis, and so on. A bare round number tells nobody
  * anything — "Round 3" means something different in every bracket size.
+ *
+ * `perfect` is what makes "round of 32" true. It counts the players still in as
+ * 2^(remaining+1), which holds only while every round halves the one before it. A
+ * consolation fed by `loserOf` does not: its major rounds take a drop-in from the
+ * main draw, so a five-round plate holds fourteen players and calling its opening
+ * "the round of 32" would be a plain lie. Those rounds are numbered instead — the
+ * closing three still earn their names, because the last match of any bracket is its
+ * final whatever fed it.
  */
-export function roundLabel(round: number, lastRound: number, t: TFunction): string {
+export function roundLabel(
+  round: number,
+  lastRound: number,
+  t: TFunction,
+  perfect = true,
+): string {
   const remaining = lastRound - round
   switch (remaining) {
     case 0:
@@ -42,9 +55,11 @@ export function roundLabel(round: number, lastRound: number, t: TFunction): stri
     case 2:
       return t('round.quarter')
     case 3:
-      return t('round.last16')
+      return perfect ? t('round.last16') : t('round.number', { n: round + 1 })
     default:
       // 2^(remaining+1) players are still in at the start of this round.
-      return t('round.of', { n: 2 ** (remaining + 1) })
+      return perfect
+        ? t('round.of', { n: 2 ** (remaining + 1) })
+        : t('round.number', { n: round + 1 })
   }
 }

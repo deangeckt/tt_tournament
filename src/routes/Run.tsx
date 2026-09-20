@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useAppStore } from '../store/useAppStore'
 import { resolveLevel, type MatchView } from '../engine/resolve'
-import type { GroupId, MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
+import { consolationConfig } from '../engine/advisor'
+import type { Group, GroupId, MatchId, MatchResult, PlayerId, StoredResult } from '../engine/types'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { BracketTree } from '../components/bracket/BracketTree'
 import { BracketViewToggle } from '../components/bracket/BracketViewToggle'
+import { isPerfectBracket } from '../components/bracket/layout'
 import { GroupTable } from '../components/group/GroupTable'
 import { TiebreakSheet, type TieEntry, type TieMatch } from '../components/group/TiebreakSheet'
 import { MatchCard } from '../components/match/MatchCard'
@@ -59,10 +61,24 @@ export function Run({ id }: { id: string }) {
 
   const ready = view.matches.filter((m) => m.playable && !m.result)
   const advancing = level.config.format === 'groupsKnockout' ? level.config.advancePerGroup : 0
-  const bracket = view.matches.filter((m) => m.match.stage !== 'group')
+
+  // The consolation is a second competition, not more of the first one, so it is split
+  // off here rather than left to fall in beside the main bracket.
+  const mainGroups = view.groups.filter((g) => !g.consolation)
+  const bracket = view.matches.filter((m) => !m.match.consolation && m.match.stage !== 'group')
+  const consolationGroups = view.groups.filter((g) => g.consolation)
+  const consolationBracket = view.matches.filter(
+    (m) => m.match.consolation && m.match.stage !== 'group',
+  )
+  const consolationField = consolationGroups.reduce((n, g) => n + g.playerIds.length, 0)
+  const consolationShape = consolationConfig(level.config, consolationField)
+  const consolationAdvancing =
+    consolationShape?.format === 'groupsKnockout' ? consolationShape.advancePerGroup : 0
+
   // Rounds are named backwards from the last one, so the final is "the final"
   // whether the bracket started with 32 players or four.
-  const lastBracketRound = bracket.reduce((max, m) => Math.max(max, m.match.round), 0)
+  const lastRoundOf = (matches: MatchView[]) =>
+    matches.reduce((max, m) => Math.max(max, m.match.round), 0)
   const progress = view.total > 0 ? Math.round((view.played / view.total) * 100) : 0
 
   /** Restore a previous result, or clear the match if there wasn't one. */
@@ -105,6 +121,53 @@ export function Run({ id }: { id: string }) {
     flashKey: lastChange?.id === matchId ? lastChange.at : undefined,
     onOpen: setEditing,
   })
+
+  /** A group's table with its own matches underneath it. */
+  const groupBlock = (group: Group, advance: number) => (
+    <div key={group.id} className="space-y-2">
+      <GroupTable
+        title={group.name}
+        rows={view.standings.get(group.id) ?? []}
+        nameOf={nameOf}
+        advancing={advance}
+        onResolveTie={(players) => setTie({ groupId: group.id, players })}
+      />
+      <div className="space-y-1.5">
+        {view.matches
+          .filter((m) => m.match.groupId === group.id)
+          .map((match) => (
+            <MatchCard key={match.match.id} view={match} {...cardProps(match.match.id)} />
+          ))}
+      </div>
+    </div>
+  )
+
+  /** A bracket as cards by round — the phone-shaped view. */
+  const bracketList = (matches: MatchView[]) => {
+    // Named off the whole bracket, byes included: filtering them out first would make
+    // a padded main draw look staggered and rename every round of it.
+    const perfect = isPerfectBracket(matches.map((m) => m.match))
+    return (
+    <div className="space-y-4">
+      {[...new Set(matches.map((m) => m.match.round))]
+        .sort((a, b) => a - b)
+        .map((round) => (
+          <div key={round}>
+            <div className="mb-1.5 text-sm font-medium text-court-500 dark:text-court-300">
+              {roundLabel(round, lastRoundOf(matches), t, perfect)}
+            </div>
+            <div className="space-y-1.5">
+              {matches
+                .filter((m) => m.match.round === round && !m.auto && !m.vacant)
+                .map((match) => (
+                  <MatchCard key={match.match.id} view={match} {...cardProps(match.match.id)} />
+                ))}
+            </div>
+          </div>
+        ))}
+    </div>
+    )
+  }
 
   // The matches standing between a dead heat and its point ratio: played between two
   // of the tied players, in their own group, and recorded without game scores. A
@@ -220,27 +283,10 @@ export function Run({ id }: { id: string }) {
         </section>
       ) : null}
 
-      {view.groups.length > 0 ? (
+      {mainGroups.length > 0 ? (
         <section className="mb-7 space-y-5">
           <h2 className="text-lg font-bold">{t('run.standings')}</h2>
-          {view.groups.map((group) => (
-            <div key={group.id} className="space-y-2">
-              <GroupTable
-                title={group.name}
-                rows={view.standings.get(group.id) ?? []}
-                nameOf={nameOf}
-                advancing={advancing}
-                onResolveTie={(players) => setTie({ groupId: group.id, players })}
-              />
-              <div className="space-y-1.5">
-                {view.matches
-                  .filter((m) => m.match.groupId === group.id)
-                  .map((match) => (
-                    <MatchCard key={match.match.id} view={match} {...cardProps(match.match.id)} />
-                  ))}
-              </div>
-            </div>
-          ))}
+          {mainGroups.map((group) => groupBlock(group, advancing))}
         </section>
       ) : null}
 
@@ -262,29 +308,54 @@ export function Run({ id }: { id: string }) {
               onOpen={setEditing}
             />
           ) : (
-            <div className="space-y-4">
-              {[...new Set(bracket.map((m) => m.match.round))]
-                .sort((a, b) => a - b)
-                .map((round) => (
-                  <div key={round}>
-                    <div className="mb-1.5 text-sm font-medium text-court-500 dark:text-court-300">
-                      {roundLabel(round, lastBracketRound, t)}
-                    </div>
-                    <div className="space-y-1.5">
-                      {bracket
-                        .filter((m) => m.match.round === round && !m.auto && !m.vacant)
-                        .map((match) => (
-                          <MatchCard
-                            key={match.match.id}
-                            view={match}
-                            {...cardProps(match.match.id)}
-                          />
-                        ))}
-                    </div>
-                  </div>
-                ))}
-            </div>
+            bracketList(bracket)
           )}
+        </section>
+      ) : null}
+
+      {/*
+        The consolation, under a heading of its own so it reads as the second
+        competition it is — drawn the same way the main bracket is, off the same
+        toggle. One switch for the level, not one per bracket: they are two halves of
+        one night and nobody wants to set the view twice.
+      */}
+      {view.consolationPending || consolationGroups.length > 0 || consolationBracket.length > 0 ? (
+        <section className="mb-7 space-y-5">
+          <h2 className="text-lg font-bold">{t('run.consolation')}</h2>
+
+          {view.consolationChampion ? (
+            <Card className="bg-ball-500/10 text-center ring-ball-400/30">
+              <div className="text-sm font-medium text-court-600 dark:text-court-100">
+                {t('run.consolationChampion')}
+              </div>
+              <div className="mt-1 text-xl font-bold">{nameOf(view.consolationChampion)}</div>
+            </Card>
+          ) : null}
+
+          {view.consolationPending ? (
+            <Card className="text-center text-sm text-court-500 dark:text-court-300">
+              {t('run.consolationPending')}
+            </Card>
+          ) : null}
+
+          {consolationGroups.map((group) => groupBlock(group, consolationAdvancing))}
+          {consolationBracket.length > 0 ? (
+            bracketView === 'tree' ? (
+              <BracketTree
+                matches={consolationBracket}
+                entrants={consolationField}
+                nameOf={nameOf}
+                groups={view.groups}
+                bestOf={level.bestOf}
+                champion={view.consolationChampion}
+                championLabel={t('run.consolationChampion')}
+                flashKey={(matchId) => cardProps(matchId).flashKey}
+                onOpen={setEditing}
+              />
+            ) : (
+              bracketList(consolationBracket)
+            )
+          ) : null}
         </section>
       ) : null}
 

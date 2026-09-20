@@ -103,6 +103,16 @@ export interface Match {
   bracketReset?: boolean
   /** Group this match belongs to, for stage === 'group'. */
   groupId?: GroupId
+  /**
+   * Belongs to the consolation — the second competition the players the main draw
+   * eliminates go on to play.
+   *
+   * Derived, never stored: a consolation is generated from `config.consolation` like
+   * every other fixture. The flag rather than the stage is what marks it, because a
+   * consolation *group* match must keep `stage: 'group'` for standings to read it,
+   * so the two brackets cannot be told apart by stage alone.
+   */
+  consolation?: true
 }
 
 export interface Group {
@@ -110,13 +120,31 @@ export interface Group {
   levelId: LevelId
   name: string
   playerIds: PlayerId[]
+  /** A group of the consolation rather than of the main draw. See Match.consolation. */
+  consolation?: true
 }
 
+/**
+ * `consolation` runs a second competition for the players the main draw eliminates,
+ * in the same format, drawn from the same frozen ranks.
+ *
+ * Optional, and absent means no consolation — the same contract `ranks` and
+ * `manualOrder` carry, and for the same reason: nothing normalises a stored record on
+ * read, so every level drawn before this existed must keep meaning what it meant.
+ *
+ * Offered on the two formats that eliminate anybody. A round robin never does, and
+ * double elimination's losers bracket already is one.
+ */
 export type FormatConfig =
   | { format: 'roundRobin' }
-  | { format: 'singleElim' }
+  | { format: 'singleElim'; consolation?: boolean }
   | { format: 'doubleElim' }
-  | { format: 'groupsKnockout'; groupCount: number; advancePerGroup: number }
+  | {
+      format: 'groupsKnockout'
+      groupCount: number
+      advancePerGroup: number
+      consolation?: boolean
+    }
 
 export type FormatName = FormatConfig['format']
 

@@ -54,7 +54,7 @@ export function DrawEditor({
     }
 
     const firstRound = matches
-      .filter((m) => m.stage !== 'group' && m.round === 0)
+      .filter((m) => m.stage !== 'group' && !m.consolation && m.round === 0)
       .sort((a, b) => a.order - b.order)
 
     return {

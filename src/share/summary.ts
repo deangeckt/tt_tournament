@@ -17,13 +17,19 @@ export function summaryText(tournament: Tournament, t: TFunction): string {
     const view = resolveLevel(level, tournament.results)
     if (tournament.levels.length > 1) lines.push('', level.name)
     if (view.champion) lines.push(`🏆 ${nameOf(view.champion)}`)
+    // A night with a consolation has two winners, and the group that reads this is
+    // exactly the one the second name matters to.
+    if (view.consolationChampion) {
+      lines.push(`${t('run.consolation')}: ${nameOf(view.consolationChampion)}`)
+    }
 
-    for (const group of view.groups) {
+    // The main draw's tables. The consolation's are left out on purpose: this is a
+    // message, and its job is the result, not every table of the evening.
+    const groups = view.groups.filter((g) => !g.consolation)
+    for (const group of groups) {
       const rows = view.standings.get(group.id) ?? []
       if (rows.length === 0) continue
-      lines.push(
-        view.groups.length > 1 ? t('draw.inGroup', { group: group.name }) : t('run.standings'),
-      )
+      lines.push(groups.length > 1 ? t('draw.inGroup', { group: group.name }) : t('run.standings'))
       for (const row of rows) lines.push(`${row.rank}. ${nameOf(row.playerId)}`)
     }
   }

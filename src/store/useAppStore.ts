@@ -48,6 +48,14 @@ interface AppState {
 
   addRosterPlayer: (name: string) => Promise<Player | undefined>
   removeRosterPlayer: (id: string) => Promise<void>
+  /**
+   * Put a deleted player back exactly as they were, for the undo toast.
+   *
+   * Not the same as adding their name again: that mints a fresh id, and a career
+   * record is keyed by id — the restored player would stand next to their own past
+   * with an empty record, their photo and their rank gone with it.
+   */
+  restoreRosterPlayer: (player: Player) => Promise<void>
   /** Rename a saved player, or attach/remove their photo. */
   patchRosterPlayer: (id: PlayerId, patch: Partial<Omit<Player, 'id'>>) => Promise<void>
 
@@ -150,6 +158,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ roster: await listRoster() })
   },
 
+  async restoreRosterPlayer(player) {
+    await putRosterPlayer(player)
+    set({ roster: await listRoster() })
+  },
+
   async patchRosterPlayer(id, patch) {
     const player = get().roster.find((p) => p.id === id)
     if (!player) return
@@ -231,8 +244,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const level = current.levels.find((l) => l.id === levelId)
     if (!level) return
 
-    const kept = new Set(buildFixtures({ ...level, config }).matches.map((m) => m.id))
-    const orphaned = buildFixtures(level)
+    const kept = new Set(
+      buildFixtures({ ...level, config }, current.results).matches.map((m) => m.id),
+    )
+    const orphaned = buildFixtures(level, current.results)
       .matches.map((m) => m.id)
       .filter((id) => !kept.has(id))
     const drop = new Set(orphaned)
@@ -262,7 +277,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const level = current.levels.find((l) => l.id === levelId)
     if (!level) return
 
-    const gone = new Set(buildFixtures(level).matches.map((m) => m.id))
+    const gone = new Set(buildFixtures(level, current.results).matches.map((m) => m.id))
     await get().saveTournament({
       ...current,
       results: Object.fromEntries(
@@ -323,7 +338,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Results are keyed by match id, and a new seed produces a different fixture
     // graph, so any result belonging to this level would attach to the wrong match.
     // Drop them rather than leave them dangling.
-    const stale = new Set(buildFixtures(level).matches.map((m) => m.id))
+    const stale = new Set(buildFixtures(level, current.results).matches.map((m) => m.id))
     const results = Object.fromEntries(
       Object.entries(current.results).filter(([id]) => !stale.has(id)),
     )

@@ -21,6 +21,12 @@ import { seedByRank } from './schedule'
 import { generateGroupMatches, singleGroup } from './formats/roundRobin'
 import { generateSingleElim } from './formats/singleElim'
 import { buildGroupsKnockout } from './formats/groupsKnockout'
+import {
+  consolationLevel,
+  generateConsolationBracket,
+  hasConsolation,
+  tagConsolation,
+} from './formats/consolation'
 import { tally } from './result'
 import { computeStandings, playersToExclude, type StandingRow } from './standings'
 
@@ -67,6 +73,10 @@ export interface LevelView {
   /** Matches whose stored result no longer matches who stands there. */
   stale: MatchView[]
   champion?: PlayerId
+  /** Winner of the consolation, which is a separate competition with its own title. */
+  consolationChampion?: PlayerId
+  /** A consolation is switched on but its field is not settled yet. */
+  consolationPending: boolean
   played: number
   total: number
   complete: boolean
@@ -139,13 +149,15 @@ export interface DrawPlacement {
 }
 
 export function drawPlacements(level: Level): DrawPlacement[] {
-  const { groups, matches } = buildFixtures(level)
+  // The main draw only: the consolation is a second draw made later, from whoever this
+  // one eliminates, and has no place on the screen that arranges this one.
+  const { groups, matches } = mainFixtures(level)
   const groupOf = new Map<PlayerId, GroupId>()
   for (const group of groups) for (const id of group.playerIds) groupOf.set(id, group.id)
 
   const matchOf = new Map<PlayerId, MatchId>()
   for (const match of matches) {
-    if (match.stage === 'group' || match.round !== 0) continue
+    if (match.stage === 'group' || match.consolation || match.round !== 0) continue
     for (const slot of [match.a, match.b]) {
       if (slot.kind === 'player') matchOf.set(slot.playerId, match.id)
     }
@@ -160,14 +172,14 @@ export function drawPlacements(level: Level): DrawPlacement[] {
 }
 
 /**
- * Generate a level's fixture graph.
+ * Generate a level's main fixture graph — the competition everybody starts in.
  *
  * Pure in the level's own source state — players, config, seed and the ranks it was
  * drawn against — so the same level always produces the same matches with the same
  * ids, which is what lets results be stored by match id and everything else be
  * recomputed rather than saved.
  */
-export function buildFixtures(level: Level): { groups: Group[]; matches: Match[] } {
+function mainFixtures(level: Level): { groups: Group[]; matches: Match[] } {
   const ordered = levelDrawOrder(level)
   const config = level.config
 
@@ -202,6 +214,126 @@ export function buildFixtures(level: Level): { groups: Group[]; matches: Match[]
   }
 }
 
+/** The results of a group's matches that may still count: both sides real, and fresh. */
+function usableGroupResults(
+  groupMatches: readonly Match[],
+  results: Readonly<Record<MatchId, StoredResult>>,
+): Record<MatchId, StoredResult> {
+  const usable: Record<MatchId, StoredResult> = {}
+  for (const match of groupMatches) {
+    const stored = results[match.id]
+    if (!stored) continue
+    if (match.a.kind !== 'player' || match.b.kind !== 'player') continue
+    if (classifyStaleness(stored, match.a, match.b) !== 'fresh') continue
+    usable[match.id] = stored
+  }
+  return usable
+}
+
+/**
+ * One group's table.
+ *
+ * Module level rather than a closure inside `resolveLevel` because the consolation
+ * field is read from the very same tables the main bracket's qualifiers come from, and
+ * two implementations of "who came third" would eventually disagree about who goes up
+ * and who goes down.
+ */
+function groupTable(
+  group: Group,
+  groupMatches: readonly Match[],
+  results: Readonly<Record<MatchId, StoredResult>>,
+  level: Level,
+): StandingRow[] {
+  const usable = usableGroupResults(groupMatches, results)
+  return computeStandings({
+    playerIds: group.playerIds,
+    matches: groupMatches,
+    results: usable,
+    bestOf: level.bestOf,
+    seed: level.seed,
+    excluded: playersToExclude(groupMatches, usable, level.withdrawn),
+  })
+}
+
+function groupFinished(
+  groupMatches: readonly Match[],
+  results: Readonly<Record<MatchId, StoredResult>>,
+): boolean {
+  if (groupMatches.length === 0) return false
+  return groupMatches.every((match) => {
+    const stored = results[match.id]
+    return stored && match.a.kind === 'player' && match.b.kind === 'player'
+      ? classifyStaleness(stored, match.a, match.b) === 'fresh'
+      : false
+  })
+}
+
+/**
+ * Everyone the group stage has knocked out, or null while it is still being played.
+ *
+ * All or nothing on purpose: a consolation drawn from half-finished groups would be
+ * re-drawn on every result that followed, and every match played in it detached from
+ * its own scoreline.
+ */
+function eliminatedByGroups(
+  level: Level,
+  main: { groups: Group[]; matches: Match[] },
+  results: Readonly<Record<MatchId, StoredResult>>,
+  advancePerGroup: number,
+): PlayerId[] | null {
+  const field: PlayerId[] = []
+  for (const group of main.groups) {
+    const groupMatches = main.matches.filter((match) => match.groupId === group.id)
+    if (!groupFinished(groupMatches, results)) return null
+    for (const row of groupTable(group, groupMatches, results, level).slice(advancePerGroup)) {
+      field.push(row.playerId)
+    }
+  }
+  return field
+}
+
+/**
+ * A level's whole fixture graph: the main draw, and the consolation if it is on.
+ *
+ * Still a pure function of stored source state — `results` is source state, the one
+ * mutable payload the UI writes. What the second argument buys is a consolation whose
+ * *field* can be read off the main draw: a groups-then-knockout consolation is drawn
+ * from the players the group stage eliminated, and those are not known until it has
+ * been played. A single-elimination consolation needs none of this — it is fed by
+ * `loserOf` references and exists from the moment of the draw — so passing nothing
+ * still yields a complete graph for every format that does not have a group stage.
+ */
+export function buildFixtures(
+  level: Level,
+  results: Readonly<Record<MatchId, StoredResult>> = {},
+): { groups: Group[]; matches: Match[] } {
+  const main = mainFixtures(level)
+  const config = level.config
+  if (!hasConsolation(config)) return main
+
+  if (config.format === 'singleElim') {
+    return {
+      groups: main.groups,
+      matches: [...main.matches, ...generateConsolationBracket(level.id, main.matches)],
+    }
+  }
+
+  if (config.format !== 'groupsKnockout') return main
+  const field = eliminatedByGroups(level, main, results, config.advancePerGroup)
+  if (!field) return main
+
+  const drawnAs = consolationLevel(level, field)
+  if (!drawnAs) return main
+
+  // The consolation goes down the same pipeline the main draw did — banded draw,
+  // running order, bye padding and all — under an id of its own so nothing collides.
+  const consolation = tagConsolation(level.id, buildFixtures(drawnAs))
+  return {
+    groups: [...main.groups, ...consolation.groups],
+    matches: [...main.matches, ...consolation.matches],
+  }
+}
+
 function participantId(p: Participant): PlayerId | undefined {
   return p.kind === 'player' ? p.playerId : undefined
 }
@@ -226,7 +358,7 @@ export function resolveLevel(
   level: Level,
   results: Readonly<Record<MatchId, StoredResult>>,
 ): LevelView {
-  const { groups, matches } = buildFixtures(level)
+  const { groups, matches } = buildFixtures(level, results)
   const matchesById = new Map(matches.map((m) => [m.id, m]))
   const views = new Map<MatchId, MatchView>()
   const visiting = new Set<MatchId>()
@@ -239,38 +371,21 @@ export function resolveLevel(
     const group = groupById.get(groupId)
     if (!group) return undefined
 
-    const groupMatches = matches.filter((m) => m.groupId === groupId)
-    // Only results that still belong to the players standing there may count.
-    const usable: Record<MatchId, StoredResult> = {}
-    for (const m of groupMatches) {
-      const stored = results[m.id]
-      if (!stored) continue
-      if (m.a.kind !== 'player' || m.b.kind !== 'player') continue
-      if (classifyStaleness(stored, m.a, m.b) !== 'fresh') continue
-      usable[m.id] = stored
-    }
-
-    const rows = computeStandings({
-      playerIds: group.playerIds,
-      matches: groupMatches,
-      results: usable,
-      bestOf: level.bestOf,
-      seed: level.seed,
-      excluded: playersToExclude(groupMatches, usable, level.withdrawn),
-    })
+    const rows = groupTable(
+      group,
+      matches.filter((m) => m.groupId === groupId),
+      results,
+      level,
+    )
     standings.set(groupId, rows)
     return rows
   }
 
   function groupComplete(groupId: GroupId): boolean {
-    const groupMatches = matches.filter((m) => m.groupId === groupId)
-    if (groupMatches.length === 0) return false
-    return groupMatches.every((m) => {
-      const stored = results[m.id]
-      return stored && m.a.kind === 'player' && m.b.kind === 'player'
-        ? classifyStaleness(stored, m.a, m.b) === 'fresh'
-        : false
-    })
+    return groupFinished(
+      matches.filter((m) => m.groupId === groupId),
+      results,
+    )
   }
 
   function resolveSlot(slot: Slot): Participant {
@@ -377,11 +492,20 @@ export function resolveLevel(
   const needsPlaying = all.filter((v) => !v.auto && !v.vacant)
   const played = all.filter((v) => v.result).length
 
-  const finals = all.filter((v) => v.match.stage !== 'group')
-  const lastRound = finals.length > 0 ? Math.max(...finals.map((v) => v.match.round)) : -1
-  const finalView = finals.find((v) => v.match.round === lastRound && v.match.order === 0)
+  /** The winner of a bracket's last match — its own title, whichever bracket it is. */
+  const bracketWinner = (bracket: MatchView[]): PlayerId | undefined => {
+    if (bracket.length === 0) return undefined
+    const lastRound = Math.max(...bracket.map((v) => v.match.round))
+    return bracket.find((v) => v.match.round === lastRound && v.match.order === 0)?.winner
+  }
 
-  let champion = finalView?.winner
+  // Scoped to the main draw on purpose. The consolation is a second competition with a
+  // title of its own, and a consolation bracket can easily run deeper than the main one
+  // — read across both, a level would crown the plate winner, and `stats.ts` would post
+  // that straight into a career record.
+  const finals = all.filter((v) => !v.match.consolation && v.match.stage !== 'group')
+
+  let champion = bracketWinner(finals)
   let complete = played === needsPlaying.length && needsPlaying.length > 0
   if (finals.length === 0) {
     // Pure round robin: the champion is whoever tops the single group's table.
@@ -399,6 +523,11 @@ export function resolveLevel(
     standings,
     stale: all.filter((v) => v.staleness !== 'fresh'),
     champion,
+    consolationChampion: bracketWinner(
+      all.filter((v) => v.match.consolation && v.match.stage !== 'group'),
+    ),
+    // On, but the group stage that decides who plays in it is still being played.
+    consolationPending: hasConsolation(level.config) && !all.some((v) => v.match.consolation),
     played,
     total: needsPlaying.length,
     complete,

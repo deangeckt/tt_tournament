@@ -140,6 +140,49 @@ describe('adopting a shared tournament', () => {
     )
   })
 
+  /**
+   * A consolation travels as one boolean and is re-derived on arrival, so it should
+   * survive adoption by the same property everything else does — a 1:1 rename leaves
+   * every match id alone. Worth pinning because its ids run through a *second* level
+   * id (`L1:c:…`), and a rewrite that touched those would detach a whole competition.
+   */
+  it('re-derives a consolation against the local roster', () => {
+    const away = shared({
+      levels: [
+        {
+          ...shared().levels[0],
+          config: { format: 'singleElim', consolation: true },
+          withdrawn: [],
+        },
+      ],
+    })
+    // Played through the resolved view, not the raw fixtures: a consolation match's
+    // sides are `loserOf` references and only become people once the feeder is decided.
+    const results: Tournament['results'] = {}
+    for (let guard = 0; guard < 100; guard++) {
+      const playing = resolveLevel(away.levels[0], results)
+      const next = playing.matches.find((m) => m.playable && !m.result)
+      if (!next || next.a.kind !== 'player' || next.b.kind !== 'player') break
+      results[next.match.id] = {
+        result: { kind: 'quick', a: 3, b: 1 },
+        playedBy: [next.a.playerId, next.b.playerId],
+        enteredAt: 1,
+      }
+    }
+
+    const plan = planAdoption({ ...away, results }, roster, [])
+    const level = plan.tournament.levels[0]
+    const view = resolveLevel(level, plan.tournament.results)
+
+    expect(buildFixtures(level, plan.tournament.results).matches.map((m) => m.id)).toEqual(
+      buildFixtures(away.levels[0], results).matches.map((m) => m.id),
+    )
+    expect(view.matches.some((m) => m.match.consolation)).toBe(true)
+    expect(view.stale).toHaveLength(0)
+    expect(view.played).toBe(Object.keys(results).length)
+    expect(view.consolationChampion).toBeDefined()
+  })
+
   it('brings a stranger onto the roster with the rank they arrived carrying', () => {
     const away = shared({
       levels: [{ ...shared().levels[0], ranks: { a1: 1500, a4: 1210 } }],

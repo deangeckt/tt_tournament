@@ -12,6 +12,7 @@ import type {
 import { buildFixtures } from '../../engine/resolve'
 import { generateSeed } from '../../engine/rng'
 import { suggestedConfig } from '../../engine/advisor'
+import { hasConsolation } from '../../engine/formats/consolation'
 import { newId, useAppStore } from '../../store/useAppStore'
 import { levelDefaultName } from '../../i18n/levelName'
 import { Button, Chip, Field, inputClass, Ltr } from '../common/ui'
@@ -65,6 +66,8 @@ export function EditSheet({
 
   const [newName, setNewName] = useState('')
   const [confirmRedraw, setConfirmRedraw] = useState(false)
+  /** A format change that would delete consolation results, held until it is confirmed. */
+  const [confirmConsolationOff, setConfirmConsolationOff] = useState<FormatConfig | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [manualDraw, setManualDraw] = useState(false)
   const [showFormat, setShowFormat] = useState(false)
@@ -84,7 +87,7 @@ export function EditSheet({
   const playedIn = useMemo(() => {
     const counts = new Map<LevelId, number>()
     for (const l of tournament.levels) {
-      const ids = new Set(buildFixtures(l).matches.map((m) => m.id))
+      const ids = new Set(buildFixtures(l, tournament.results).matches.map((m) => m.id))
       counts.set(l.id, Object.keys(tournament.results).filter((id) => ids.has(id)).length)
     }
     return counts
@@ -200,7 +203,20 @@ export function EditSheet({
     })
   }
 
+  /** Results already recorded in the consolation, which switching it off would discard. */
+  const consolationPlayed = hasConsolation(level.config)
+    ? buildFixtures(level, tournament.results).matches.filter(
+        (m) => m.consolation && tournament.results[m.id],
+      ).length
+    : 0
+
   const changeFormat = async (config: FormatConfig) => {
+    // Switching the consolation off throws a whole competition's results away, and the
+    // general format warning does not name it. Ask about exactly that, once.
+    if (hasConsolation(level.config) && !hasConsolation(config) && consolationPlayed > 0) {
+      setConfirmConsolationOff(config)
+      return
+    }
     await setLevelConfig(level.id, config)
     toast(t('edit.formatChanged'), playedCount > 0 ? 'warn' : 'success')
   }
@@ -498,6 +514,31 @@ export function EditSheet({
               <div className="flex-1" />
               <Button variant="subtle" size="sm" onClick={() => void changeFormat(recommended)}>
                 {t('edit.formatApply')}
+              </Button>
+            </div>
+          ) : null}
+
+          {confirmConsolationOff ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-ball-500/10 p-3">
+              <span className="text-sm font-medium text-ball-600">
+                {t('edit.consolationOffWarn', { count: consolationPlayed })}
+              </span>
+              <div className="flex-1" />
+              <Button variant="subtle" size="sm" onClick={() => setConfirmConsolationOff(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  const next = confirmConsolationOff
+                  setConfirmConsolationOff(null)
+                  void setLevelConfig(level.id, next).then(() =>
+                    toast(t('edit.formatChanged'), 'warn'),
+                  )
+                }}
+              >
+                {t('edit.consolationOff')}
               </Button>
             </div>
           ) : null}

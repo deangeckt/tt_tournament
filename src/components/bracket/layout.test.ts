@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { generateSingleElim } from '../../engine/formats/singleElim'
+import { generateConsolationBracket } from '../../engine/formats/consolation'
 import type { Slot } from '../../engine/types'
 import { layoutBracket, roundsForField, TREE_METRICS } from './layout'
 
@@ -138,5 +139,81 @@ describe('padding to the size of the field', () => {
     const layout = layoutBracket(generateSingleElim('L', players(4)), TREE_METRICS, 4)!
     const pitch = TREE_METRICS.nodeHeight + TREE_METRICS.rowGap
     expect(layout.height).toBe(TREE_METRICS.headerHeight + pitch * 8)
+  })
+})
+
+/**
+ * A consolation fed by `loserOf` is a tree, but not a perfect one: its major rounds
+ * hold as many matches as the round before them, because each takes one survivor and
+ * one player dropping in from the main draw. The index arithmetic cannot place that.
+ */
+describe('a staggered consolation bracket', () => {
+  const plate = (n: number) =>
+    generateConsolationBracket('L', generateSingleElim('L', players(n)))
+  const drawn = (n: number, minRounds = 1) => layoutBracket(plate(n), TREE_METRICS, minRounds)!
+
+  it('is the shape the generator made, not a perfect tree', () => {
+    const rounds = plate(16).reduce<number[]>((counts, m) => {
+      counts[m.round] = (counts[m.round] ?? 0) + 1
+      return counts
+    }, [])
+    expect(rounds).toEqual([4, 4, 2, 2, 1])
+  })
+
+  it('centres every match on whatever feeds it', () => {
+    for (const n of [8, 16]) {
+      const layout = drawn(n)
+      for (const node of layout.nodes) {
+        const feeders = layout.edges
+          .filter((e) => e.to === node.id)
+          .map((e) => layout.byId.get(e.from)!)
+        if (feeders.length === 0) continue
+        const mean = feeders.reduce((sum, f) => sum + f.cy, 0) / feeders.length
+        expect(node.cy).toBeCloseTo(mean)
+      }
+    }
+  })
+
+  it('runs a lone survivor straight across into the round that takes a drop-in', () => {
+    const layout = drawn(8)
+    // Round 1 is the first major round: one feeder each, so the line does not bend.
+    const major = layout.nodes.filter((n) => n.round === 1)
+    expect(major).toHaveLength(2)
+    for (const node of major) {
+      const feeders = layout.edges.filter((e) => e.to === node.id)
+      expect(feeders).toHaveLength(1)
+      expect(layout.byId.get(feeders[0].from)!.cy).toBe(node.cy)
+    }
+  })
+
+  it('never overlaps two nodes in one column', () => {
+    for (const n of [8, 16]) {
+      const layout = drawn(n)
+      for (let round = 0; round < layout.rounds; round++) {
+        const column = layout.nodes.filter((node) => node.round === round).sort((a, b) => a.y - b.y)
+        for (let i = 1; i < column.length; i++) {
+          expect(column[i].y).toBeGreaterThanOrEqual(column[i - 1].y + TREE_METRICS.nodeHeight)
+        }
+      }
+    }
+  })
+
+  it('refuses to be padded out to a field nobody entered', () => {
+    // A consolation is arrived at by losing, so leading rounds of empty seats would
+    // be a fiction. minRounds is ignored and no seat is ever drawn.
+    const layout = drawn(8, 4)
+    expect(layout.rounds).toBe(3)
+    expect(layout.nodes.every((n) => n.kind === 'match')).toBe(true)
+  })
+
+  it('is exactly tall enough, and hangs its winner off its own final', () => {
+    const layout = drawn(16)
+    const lowest = Math.max(...layout.nodes.map((n) => n.y + TREE_METRICS.nodeHeight))
+    expect(layout.height).toBeGreaterThanOrEqual(lowest)
+    expect(Math.min(...layout.nodes.map((n) => n.y))).toBeGreaterThanOrEqual(
+      TREE_METRICS.headerHeight,
+    )
+    expect(layout.final?.round).toBe(4)
+    expect(layout.champion.cy).toBe(layout.final!.cy)
   })
 })

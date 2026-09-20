@@ -6,6 +6,7 @@ import { tally } from '../../engine/result'
 import { participantLabel, roundLabel } from '../match/labels'
 import {
   layoutBracket,
+  isPerfectBracket,
   roundsForField,
   TREE_METRICS,
   type NodeBox,
@@ -61,6 +62,7 @@ export function BracketTree({
   groups,
   bestOf,
   champion,
+  championLabel,
   flashKey,
   onOpen,
 }: {
@@ -72,6 +74,8 @@ export function BracketTree({
   groups: readonly Group[]
   bestOf: BestOf
   champion?: PlayerId
+  /** What the leaf past the final is called; the main draw's champion unless told otherwise. */
+  championLabel?: string
   /** See MatchCard: bumped by the screen that just changed this match's score. */
   flashKey?: (id: MatchId) => number | undefined
   /** Omitted on read-only screens, where a node is a label rather than a button. */
@@ -113,6 +117,8 @@ export function BracketTree({
   const { nodeWidth, nodeHeight, columnGap } = fit.metrics
   const junction = columnGap / 2
   const lastRound = layout.rounds - 1
+  // A staggered consolation cannot be named by how many players are left in it.
+  const perfect = isPerfectBracket(matches.map((m) => m.match))
 
   const walked = 'border-court-500 dark:border-court-400'
   const unwalked = 'border-court-200 dark:border-court-700'
@@ -157,11 +163,11 @@ export function BracketTree({
       <div className="tt-tree relative" style={canvas}>
         {Array.from({ length: layout.rounds }, (_, round) => (
           <RoundHeading key={round} x={layout.columnX(round)} width={nodeWidth}>
-            {roundLabel(round, lastRound, t)}
+            {roundLabel(round, lastRound, t, perfect)}
           </RoundHeading>
         ))}
         <RoundHeading x={layout.champion.x} width={nodeWidth}>
-          {t('run.champion')}
+          {championLabel ?? t('run.champion')}
         </RoundHeading>
 
         {layout.edges.map((edge) => {

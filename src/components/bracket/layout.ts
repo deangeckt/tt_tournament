@@ -100,6 +100,33 @@ export interface TreeLayout {
   columnX: (round: number) => number
 }
 
+/**
+ * Whether this bracket is a perfect tree — every round exactly half the one before.
+ *
+ * True of any knockout drawn from a padded field, and false of a consolation fed by
+ * `loserOf`: its major rounds take one survivor and one player dropping in from the
+ * main draw, so a round can be the same size as the round before it. That shape is
+ * still a tree, but not one index arithmetic can place.
+ *
+ * It also decides how the rounds may be *named*. "Quarter-final" and "round of 32"
+ * are claims about how many players are still in, and in a staggered bracket they
+ * are simply false — a five-round consolation holds fourteen players, not thirty-two.
+ */
+export function isPerfectBracket(matches: readonly Match[]): boolean {
+  if (matches.length === 0) return true
+  return halvesEveryRound(matches, Math.max(...matches.map((m) => m.round)) + 1)
+}
+
+function halvesEveryRound(matches: readonly Match[], rounds: number): boolean {
+  const counts = new Array<number>(rounds).fill(0)
+  for (const m of matches) counts[m.round]++
+  if (counts[rounds - 1] !== 1) return false
+  for (let round = 1; round < rounds; round++) {
+    if (counts[round] !== counts[round - 1] / 2) return false
+  }
+  return true
+}
+
 export function layoutBracket(
   matches: readonly Match[],
   metrics: TreeMetrics = TREE_METRICS,
@@ -109,24 +136,15 @@ export function layoutBracket(
   const { nodeWidth, nodeHeight, rowGap, columnGap, headerHeight } = metrics
 
   const realRounds = Math.max(...matches.map((m) => m.round)) + 1
-  const rounds = Math.max(realRounds, minRounds)
+  const staggered = !halvesEveryRound(matches, realRounds)
+  // Padding a staggered bracket out to a field size would be meaningless: nobody
+  // entered a consolation directly, they arrived in it by losing somewhere else.
+  const rounds = staggered ? realRounds : Math.max(realRounds, minRounds)
   const padding = rounds - realRounds
   const pitch = nodeHeight + rowGap
   const columnX = (round: number) => round * (nodeWidth + columnGap)
 
-  // Each round's pitch doubles, so a node sits level with the middle of the two
-  // seats that feed it — the shape people recognise as a bracket.
-  const place = (round: number, order: number) => {
-    const cy = headerHeight + pitch * 2 ** round * (order + 0.5)
-    return { round, order, x: columnX(round), y: cy - nodeHeight / 2, cy }
-  }
-
-  const nodes: NodeBox[] = matches.map((m) => ({
-    kind: 'match',
-    id: m.id,
-    ...place(m.round + padding, m.order),
-  }))
-
+  const nodes: NodeBox[] = []
   const edges: TreeEdge[] = []
   const realIds = new Set(matches.map((m) => m.id))
   for (const m of matches) {
@@ -138,24 +156,84 @@ export function layoutBracket(
     }
   }
 
-  // The padding: behind each side of each opening match, a chain of seats running
-  // back to the first column. Only the chain that carries the entrant is drawn —
-  // the seats a full sixteen-draw would leave empty are simply not there — and
-  // every step of the chain is an a-side feed, so the entrant stays on the upper
-  // path and the geometry holds.
-  for (const m of matches) {
-    if (m.round !== 0) continue
-    for (const side of ['a', 'b'] as const) {
-      let order = m.order * 2 + (side === 'a' ? 0 : 1)
-      let to = m.id
-      let toSide: Side = side
-      for (let round = padding - 1; round >= 0; round--) {
-        const id = `seat:${m.id}:${side}:${round}`
-        nodes.push({ kind: 'seat', id, matchId: m.id, side, ...place(round, order) })
-        edges.push({ from: id, to, side: toSide })
-        to = id
-        toSide = 'a'
-        order *= 2
+  if (staggered) {
+    // Placed from the feeders up instead of by index: a node sits at the mean of
+    // whatever actually feeds it, and the matches nothing feeds — the opening round,
+    // where everyone arrives from the main draw — stack one pitch apart. For a
+    // perfect tree this produces the very same coordinates as the arithmetic below,
+    // which is why only the shapes that need it take this path.
+    const feeders = new Map<MatchId, { id: MatchId; side: Side }[]>()
+    for (const edge of edges) {
+      feeders.set(edge.to, [...(feeders.get(edge.to) ?? []), { id: edge.from, side: edge.side }])
+    }
+
+    const centres = new Map<MatchId, number>()
+    let leaves = 0
+    const centre = (id: MatchId): number => {
+      const known = centres.get(id)
+      if (known !== undefined) return known
+      const into = (feeders.get(id) ?? [])
+        .slice()
+        .sort((x, y) => (x.side === y.side ? 0 : x.side === 'a' ? -1 : 1))
+      // One feeder means a round that takes a drop-in beside it: the survivor's line
+      // runs straight across, and the player joining from the main draw is named on
+      // the node rather than drawn arriving from a column that is not there.
+      const cy =
+        into.length === 0
+          ? headerHeight + pitch * (leaves++ + 0.5)
+          : into.reduce((sum, f) => sum + centre(f.id), 0) / into.length
+      centres.set(id, cy)
+      return cy
+    }
+
+    // The final first, so the opening round is numbered down the page in bracket
+    // order rather than in whatever order the generator emitted it.
+    for (const m of [...matches].sort((a, b) => b.round - a.round || a.order - b.order)) {
+      centre(m.id)
+    }
+    for (const m of matches) {
+      const cy = centres.get(m.id)!
+      nodes.push({
+        kind: 'match',
+        id: m.id,
+        round: m.round,
+        order: m.order,
+        x: columnX(m.round),
+        y: cy - nodeHeight / 2,
+        cy,
+      })
+    }
+  } else {
+    // Each round's pitch doubles, so a node sits level with the middle of the two
+    // seats that feed it — the shape people recognise as a bracket.
+    const place = (round: number, order: number) => {
+      const cy = headerHeight + pitch * 2 ** round * (order + 0.5)
+      return { round, order, x: columnX(round), y: cy - nodeHeight / 2, cy }
+    }
+
+    for (const m of matches) {
+      nodes.push({ kind: 'match', id: m.id, ...place(m.round + padding, m.order) })
+    }
+
+    // The padding: behind each side of each opening match, a chain of seats running
+    // back to the first column. Only the chain that carries the entrant is drawn —
+    // the seats a full sixteen-draw would leave empty are simply not there — and
+    // every step of the chain is an a-side feed, so the entrant stays on the upper
+    // path and the geometry holds.
+    for (const m of matches) {
+      if (m.round !== 0) continue
+      for (const side of ['a', 'b'] as const) {
+        let order = m.order * 2 + (side === 'a' ? 0 : 1)
+        let to = m.id
+        let toSide: Side = side
+        for (let round = padding - 1; round >= 0; round--) {
+          const id = `seat:${m.id}:${side}:${round}`
+          nodes.push({ kind: 'seat', id, matchId: m.id, side, ...place(round, order) })
+          edges.push({ from: id, to, side: toSide })
+          to = id
+          toSide = 'a'
+          order *= 2
+        }
       }
     }
   }
@@ -173,7 +251,9 @@ export function layoutBracket(
     final,
     champion,
     width: columnX(rounds) + nodeWidth,
-    height: headerHeight + pitch * 2 ** (rounds - 1),
+    height: staggered
+      ? Math.max(...nodes.map((n) => n.cy)) + nodeHeight / 2
+      : headerHeight + pitch * 2 ** (rounds - 1),
     columnX,
   }
 }

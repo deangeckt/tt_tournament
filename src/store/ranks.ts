@@ -49,7 +49,7 @@ export function ranksOrNone(
  * precisely the level where moving the draw again would do the most damage.
  */
 export function hasStoredResults(level: Level, results: Tournament['results']): boolean {
-  const ids = new Set(buildFixtures(level).matches.map((match) => match.id))
+  const ids = new Set(buildFixtures(level, results).matches.map((match) => match.id))
   return Object.keys(results).some((id) => ids.has(id))
 }
 

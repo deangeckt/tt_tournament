@@ -40,6 +40,52 @@ export function groupSizes(n: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
+/**
+ * How many players the main draw eliminates, and so how big the consolation is.
+ *
+ * A knockout sends down everyone but the two finalists. A group stage sends down
+ * everyone it does not qualify — and it is the group stage alone that does the
+ * eliminating there, because the players it puts through are still in the main
+ * competition when the consolation is drawn.
+ */
+export function consolationFieldSize(config: FormatConfig, playerCount: number): number {
+  switch (config.format) {
+    case 'singleElim':
+      return Math.max(0, playerCount - 2)
+    case 'groupsKnockout':
+      return Math.max(0, playerCount - config.groupCount * config.advancePerGroup)
+    default:
+      return 0
+  }
+}
+
+/**
+ * The format a consolation runs, scaled to the losers' field.
+ *
+ * The same format as the main wherever the field can take it. A groups-then-knockout
+ * night whose losers are too few for a group stage still gets a consolation — as a
+ * straight knockout, which is the elimination-shaped thing and reuses the bracket
+ * generator whole. Below two players there is nothing to play.
+ *
+ * Lives here rather than beside the generator because it is the same question
+ * `suggestedConfig` answers — what shape should this competition be — and because the
+ * duration advice below has to ask it too.
+ */
+export function consolationConfig(main: FormatConfig, fieldSize: number): FormatConfig | null {
+  if (fieldSize < 2) return null
+
+  if (main.format === 'groupsKnockout') {
+    const sameAgain: FormatConfig = {
+      format: 'groupsKnockout',
+      groupCount: suggestGroupCount(fieldSize),
+      advancePerGroup: main.advancePerGroup,
+    }
+    if (!validateConfig(sameAgain, fieldSize)) return sameAgain
+  }
+
+  return { format: 'singleElim' }
+}
+
 export function describe(
   config: FormatConfig,
   playerCount: number,
@@ -75,6 +121,23 @@ export function describe(
       matchCount = groupMatches + bracketMatches
       minMatchesPerPlayer = Math.max(0, Math.min(...sizes) - 1)
       break
+    }
+  }
+
+  // A consolation is a whole second competition and can half again the length of the
+  // night, so it has to be in the number the format card shows — that card is the only
+  // place anyone is told what they are committing the evening to.
+  if (config.format === 'singleElim' || config.format === 'groupsKnockout') {
+    if (config.consolation) {
+      const field = consolationFieldSize(config, playerCount)
+      const shape = consolationConfig(config, field)
+      if (shape) {
+        const consolation = describe(shape, field, bestOf)
+        matchCount += consolation.matchCount
+        // The floor is what a player who goes out early gets, which is the whole point
+        // of running one: their main-draw minimum, and then the consolation's.
+        minMatchesPerPlayer += consolation.minMatchesPerPlayer
+      }
     }
   }
 

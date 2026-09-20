@@ -6,7 +6,8 @@ import {
   shareUrl,
   slimForSharing,
 } from './payload'
-import { buildFixtures } from '../engine/resolve'
+import { SHORTENABLE_URL_LENGTH } from './shorten'
+import { buildFixtures, resolveLevel } from '../engine/resolve'
 import { parseBackup, buildBackup, BACKUP_APP } from '../store/backup'
 import type { Level, Tournament } from '../engine/types'
 
@@ -96,6 +97,56 @@ describe('share payload', () => {
     expect(encoded.length).toBeLessThan(JSON.stringify(big).length / 3)
     expect(shareUrl(big, 'https://club.example/tt/').length).toBeLessThan(SAFE_URL_LENGTH)
     expect(decodeTournament(encoded)).toEqual(big)
+  })
+
+  it('keeps that night shortenable once it also runs a consolation', () => {
+    // The same evening with בית ניחומים on, which roughly half again the results and
+    // so the dominant term in the payload.
+    //
+    // `SAFE_URL_LENGTH` is not the limit that bites first, and the two that do fail
+    // *silently*: over SHORTENABLE_URL_LENGTH the sheet stops asking for a short link
+    // at all and falls back to a URL thousands of characters long — with the QR code
+    // along with it — and only at 8000 does anyone get told anything. So the budget
+    // worth pinning is the shortener's, not the sheet's.
+    //
+    // Measured: 98 results and 4,617 characters, against 67 and 3,687 for the very
+    // same night with the consolation off. Inside the 5,000 the first provider takes,
+    // and past the 4,096 the fallback one does — so a night this size has one
+    // shortener behind it rather than two. Worth knowing; not worth a smaller feature.
+    const level: Level = {
+      id: 'L1',
+      name: 'א׳',
+      playerIds: Array.from({ length: 24 }, (_, i) => `p${i + 1}`),
+      config: { format: 'groupsKnockout', groupCount: 4, advancePerGroup: 2, consolation: true },
+      bestOf: 5,
+      seed: 'SEED1234',
+      withdrawn: [],
+    }
+
+    // Played through the resolved view: the consolation's fixtures only exist once the
+    // group stage they are drawn from is finished, and a bracket match's sides are
+    // references until the matches feeding them are decided.
+    const results: Tournament['results'] = {}
+    for (let guard = 0; guard < 400; guard++) {
+      const view = resolveLevel(level, results)
+      const next = view.matches.find((m) => m.playable && !m.result)
+      if (!next || next.a.kind !== 'player' || next.b.kind !== 'player') break
+      results[next.match.id] = {
+        result: { kind: 'detailed', games: [{ a: 11, b: 9 }, { a: 8, b: 11 }, { a: 11, b: 7 }] },
+        playedBy: [next.a.playerId, next.b.playerId],
+        enteredAt: 1700000000000,
+      }
+    }
+
+    const big = tournament({
+      levels: [level],
+      players: level.playerIds.map((id, i) => ({ id, name: `שחקן ${i + 1}` })),
+      results,
+    })
+
+    expect(Object.keys(results).length).toBeGreaterThan(70)
+    expect(shareUrl(big, 'https://club.example/tt/').length).toBeLessThan(SHORTENABLE_URL_LENGTH)
+    expect(decodeTournament(encodeTournament(big))).toEqual(big)
   })
 
   it('uses only characters that survive a url fragment', () => {
