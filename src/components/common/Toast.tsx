@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { useToasts, type Toast } from '../../store/useToasts'
 
@@ -9,14 +10,16 @@ const TONES: Record<Toast['tone'], string> = {
 }
 
 function ToastRow({ toast: item }: { toast: Toast }) {
+  const { t } = useTranslation()
   const dismiss = useToasts((s) => s.dismiss)
 
   useEffect(() => {
+    if (item.persistent) return
     // Actionable toasts stay longer, since they ask the user to decide something.
     const ms = item.action ? 6000 : 2600
     const timer = setTimeout(() => dismiss(item.id), ms)
     return () => clearTimeout(timer)
-  }, [item.id, item.action, dismiss])
+  }, [item.id, item.action, item.persistent, dismiss])
 
   return (
     <motion.div
@@ -31,13 +34,25 @@ function ToastRow({ toast: item }: { toast: Toast }) {
       {item.action ? (
         <button
           type="button"
-          className="shrink-0 rounded-lg px-2 py-1 underline underline-offset-2 transition hover:bg-white/20"
+          className="-my-2 min-h-11 shrink-0 rounded-lg px-2 underline underline-offset-2 transition hover:bg-white/20"
           onClick={() => {
             item.action?.run()
             dismiss(item.id)
           }}
         >
           {item.action.label}
+        </button>
+      ) : null}
+      {item.persistent ? (
+        // Nothing times a persistent toast out, so it needs a way to go that is not
+        // its action.
+        <button
+          type="button"
+          aria-label={t('common.close')}
+          className="-my-2 -me-2 min-h-11 min-w-11 shrink-0 rounded-lg transition hover:bg-white/20"
+          onClick={() => dismiss(item.id)}
+        >
+          ✕
         </button>
       ) : null}
     </motion.div>

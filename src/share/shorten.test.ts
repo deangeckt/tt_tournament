@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SHORTENABLE_URL_LENGTH, shortenUrl } from './shorten'
+import { SHORTENABLE_URL_LENGTH, linkState, shortenUrl } from './shorten'
 
 const original = globalThis.fetch
 
@@ -79,5 +79,31 @@ describe('shortenUrl', () => {
     // clck.ru caps at 4096 and is the second provider, so only one call goes out.
     expect(await shortenUrl(longUrl('y'.repeat(4200)))).toBeNull()
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('linkState', () => {
+  const base = { canShorten: true, hasShort: false, failed: false, online: true }
+
+  it('shortens a link that can be, online, with nothing tried yet', () => {
+    expect(linkState(base)).toBe('shortening')
+  })
+
+  it('never shortens offline, and says so rather than calling it a failure', () => {
+    expect(linkState({ ...base, online: false })).toBe('offline')
+    expect(linkState({ ...base, online: false, failed: true })).toBe('offline')
+  })
+
+  it('does not try again by itself after every shortener failed', () => {
+    expect(linkState({ ...base, failed: true })).toBe('failed')
+  })
+
+  it('keeps a short link it already has, offline or not', () => {
+    expect(linkState({ ...base, hasShort: true, online: false })).toBe('short')
+  })
+
+  it('calls a link too long to shorten that, whatever the network', () => {
+    expect(linkState({ ...base, canShorten: false })).toBe('tooLong')
+    expect(linkState({ ...base, canShorten: false, online: false })).toBe('tooLong')
   })
 })

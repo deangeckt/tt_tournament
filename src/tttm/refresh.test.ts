@@ -66,16 +66,19 @@ const player = (id: string, name: string, extra: Partial<Player> = {}): Player =
 
 /**
  * A run against scripted answers: `byId` and `search` replay a queue per key, and
- * `answers` is what the manager taps, in order. Everything the run does is logged.
+ * `answers` is what the manager taps, in order. Everything the run does is logged,
+ * waiting for a connection included; `whileWaiting` runs during each wait.
  */
 function harness({
   byId = {},
   search = {},
   answers = [],
+  whileWaiting,
 }: {
   byId?: Record<number, TttmResult<TttmPlayer>[]>
   search?: Record<string, TttmResult<TttmPlayer[]>[]>
   answers?: RefreshAnswer[]
+  whileWaiting?: () => void
 }) {
   const calls: string[] = []
   const questions: RefreshQuestion[] = []
@@ -97,6 +100,10 @@ function harness({
       const answer = answers.shift() ?? { kind: 'stop' }
       if (answer.kind === 'stop') stop = true
       return answer
+    },
+    waitForConnection: async () => {
+      calls.push('wait')
+      whileWaiting?.()
     },
     apply: async (p, match) => {
       applied.push([p.id, match.rank])
@@ -219,6 +226,44 @@ describe('refreshRanks', () => {
     expect(result).toBe('stopped')
     expect(h.outcomes).toEqual([])
     expect(h.calls).toEqual(['search:רונית גורן'])
+  })
+
+  it('waits out a lost connection without asking, then carries on with the same player', async () => {
+    const h = harness({
+      search: { 'רונית גורן': [{ kind: 'offline' }, { kind: 'ok', value: [ronitGoren] }] },
+    })
+    const result = await refreshRanks([player('r', 'רונית גורן')], h.deps)
+
+    expect(result).toBe('done')
+    expect(h.questions).toEqual([])
+    expect(h.calls).toEqual(['search:רונית גורן', 'wait', 'search:רונית גורן'])
+    expect(h.outcomes[0].kind).toBe('updated')
+  })
+
+  it('waits the same way for a linked player read off their page', async () => {
+    const h = harness({
+      byId: { 676: [{ kind: 'offline' }, { kind: 'ok', value: gorenRanked }] },
+    })
+    await refreshRanks([player('a', 'עמית גורן', { tttmId: 676 })], h.deps)
+
+    expect(h.questions).toEqual([])
+    expect(h.calls).toEqual(['id:676', 'wait', 'id:676'])
+    expect(h.applied).toEqual([['a', 1747.6]])
+  })
+
+  it('ends the run when it is stopped while waiting for a connection', async () => {
+    const h = harness({
+      search: {
+        'רונית גורן': [{ kind: 'offline' }],
+        'עמית גורן': [{ kind: 'ok', value: [gorenRanked] }],
+      },
+      whileWaiting: () => h.stopNow(),
+    })
+    const result = await refreshRanks([player('r', 'רונית גורן'), player('a', 'עמית גורן')], h.deps)
+
+    expect(result).toBe('stopped')
+    expect(h.outcomes).toEqual([])
+    expect(h.calls).toEqual(['search:רונית גורן', 'wait'])
   })
 
   it('drops a lookup that comes back after the run was stopped', async () => {

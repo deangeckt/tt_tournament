@@ -342,7 +342,9 @@ The first two never touch a server; the third does, and says so:
   here — da.gd sends anything asking for `text/html` to its own landing page with the long
   url printed on it to click, and tinyurl's keyless `api-create.php` now mints links that
   land on a "deprecated" preview page. A link the recipient has to click twice is worse
-  than no short link at all.
+  than no short link at all. Offline nothing is attempted: the long url shows with a note
+  that says why, and the sheet shortens by itself once the connection is back
+  (`linkState`, see *Working offline*).
 
 ### Getting data back in
 
@@ -448,6 +450,69 @@ ranks are frozen onto levels (`store/ranks.ts`), and the refresh only patches th
 `lookup.ts` keeps requests under the relay's allowance itself (`relayFreeAt`, 18 in any
 60 seconds) rather than finding the limit by a `429`. It applies to every lookup, but a
 manager searching by hand never comes near it.
+
+### Working offline
+
+Once it had loaded, the app never needed the network — storage is IndexedDB, the fonts
+are bundled, the engine is local. What it needed the network for was *opening*: a
+tablet woken in a hall with no signal had nothing to show. `vite-plugin-pwa` closes
+that. A generated service worker precaches the build on the first visit, and a
+manifest makes the app installable.
+
+- **The precache is an allowlist** (`globPatterns` in `vite.config.ts`): js, css, html,
+  svg, webp, woff2. That leaves out the `.woff` fallbacks (every browser with a service
+  worker reads woff2), `og.jpg` (link previews only), robots, sitemap and the icons —
+  about 820KB in all. `navigateFallback` answers every navigation with `index.html`,
+  which under hash routing is every screen and every share link, so **a share link opens
+  offline on any device that has visited once**; the denylist keeps `/sitemap.xml` and
+  its kind from being answered with the app. No `runtimeCaching`, on purpose: a lookup
+  or a shortener that cannot be reached must say so, never answer with last week's
+  response.
+- **An update waits to be asked** (`registerType: 'prompt'`, `src/pwa.ts`). A new build
+  raises a persistent toast, and nothing reloads until it is tapped, because an
+  automatic reload lands in the middle of a half-typed score. Closing the toast is safe:
+  the waiting worker takes over once every window has closed. The app checks for a new
+  build itself — hourly, and when brought back to the screen — because a browser checks
+  on navigation, hash routing never navigates, and an installed app stays open for days.
+- **Everything is relative**, as `base` is: `start_url` and `scope` are `./`, and there
+  is **no manifest `id`** — it resolves against the *origin*, which every github.io
+  project shares. Left out, it defaults to `start_url`, which is ours alone.
+- **`navigator.onLine` is trusted only when it says false** (`store/useOnline.ts`). True
+  means *some* network, not a working one: a club's wifi with nothing behind it reads as
+  online. So offline is a reason not to try and online is only leave to; every failure
+  path the network features already had stays where it was.
+
+Whatever the screen, a bar under the header (`components/common/OfflineBar.tsx`) says
+so for as long as the connection is gone — what still works and what waits — and a
+toast marks its return. The home-screen app opens identically with or without a
+network, so without it nobody could tell which they were on; that is also why the
+first-visit toast says the app was *saved* rather than that it is "ready offline",
+which read as "you are offline" to someone who was not.
+
+The three things that need the internet each say "offline" as itself, never as a
+failure, because no "try again" helps until the connection is back:
+
+- **Share** (`linkState` in `share/shorten.ts`): no request goes out, the long link
+  shows with a note, and the sheet shortens on reconnect by itself — driven by the
+  reconnect clearing the remembered failure, not by an effect watching `online`.
+- **Rank lookup**: `TttmResult` has an `offline` kind, returned *before* a relay slot is
+  spent. Search and paste-link are switched off with the reason in the warning box, and
+  typing the number works as it always did.
+- **Rank refresh** will not start offline, and a connection lost mid-run **pauses** it
+  on the same player (`RefreshDeps.waitForConnection`) instead of asking.
+  `RefreshQuestion` has no offline reason, so the type rules out asking the manager the
+  same question forty times. The store's wait reads `navigator.onLine` rather than the
+  store — the very source the lookup just read — because a moment where the two
+  disagreed would retry in a loop of microtasks that never lets the `online` event in.
+
+**Installing** (`store/useInstall.ts`, and `components/data/InstallCard.tsx` on
+settings). Chromium's `beforeinstallprompt` is captured at module load from `main.tsx`
+— it can fire long before settings is opened, and an unheard event is gone — and held
+for a button. Safari has no API, so iOS gets the menu path in words, plus the one thing
+that would otherwise lose somebody their history: **a home-screen app on iOS keeps
+storage of its own, apart from Safari's**, so it opens empty. The card says to export a
+backup first, and `ImportPrompt` picks up the empty arrival. An install also re-asks
+`requestPersistence`, which a browser is far likelier to grant then.
 
 ### The tiebreak chain
 
@@ -559,7 +624,8 @@ type-only imports need `import type`. `noUnusedLocals`/`noUnusedParameters` are 
 undo where the action is destructive), a card flash, an animated progress bar, or a
 standings row that slides. Drive these from **the event that caused the change** — pass
 a `flashKey` down, or key a component to remount — rather than an effect watching for a
-changed prop.
+changed prop. A toast that has to outlast the stack of three is `persistent`: for a
+decision that can wait, like reloading into a new version, never for a confirmation.
 
 **Touch.** Minimum 44px tap targets. `Button size="sm"` and `Chip` both carry
 `min-h-11` for this reason; don't drop it. Tooltips are hover-only, so never put
@@ -621,6 +687,15 @@ not hand-edit" arrangement as the logo and the wallpaper. It carries no text on 
 ffmpeg's `drawtext` does no bidi reordering, so any Hebrew in it would come out reversed
 unless pre-flipped by hand against whichever font that machine happens to have. `og:title`
 supplies the words, and the emblem already spells the club's name inside its ring.
+
+**Icons.** `public/icon-*.png` and `public/apple-touch-icon.png` are generated by
+`scripts/make-icons.mjs` from the same logo master — regenerate, do not hand-edit. The
+disc is the header mark's; what differs is the ground. Transparent for the manifest's
+`any`; the dark theme's court-950 for `maskable`, with the disc at 78% inside the 80%
+safe zone; and the same for iOS, which reads no manifest icons and fills transparency
+with black. They are not precached: they are fetched at install, and the shaded portrait
+is a few hundred KB losslessly. Launchers cache an icon by url, so a new emblem means new
+filenames, as with `racket.svg`.
 
 **Editing.** Because the engine re-derives from source, almost everything is safe to
 change mid-tournament — including adding a level, moving a player from one level to
@@ -702,7 +777,7 @@ does not: storage that is one browser deep, a short link made by an outside serv
 double elimination unbuilt, a retirement entered as a walkover, a withdrawal that does
 not fill in the matches it leaves behind. Its copy is one key set at two depths:
 `about.<id>Title` alone is a bullet on the home screen's first-run card, and the same
-title with `about.<id>Body` under it is a section on the screen. Six of the thirteen
+title with `about.<id>Body` under it is a section on the screen. Six of the fourteen
 lead the first-run card (`HIGHLIGHTS` in `routes/Home.tsx`), so there is no second list
 to keep in step — and a title has to read on its own, since half its appearances have no
 body under them. `README.md` is a third depth and the only one that can drift.
@@ -710,6 +785,10 @@ body under them. `README.md` is a third depth and the only one that can drift.
 Since then: **refreshing every rank** from the settings screen — see *Refreshing every
 rank* above — which asks only when a name could be more than one person or a lookup
 failed.
+
+Latest: the app **works offline and installs** — see *Working offline* above. The about
+screen's online limit is now only that the *first* visit needs a connection, and running
+without one is a feature of its own there.
 
 The knockout stage has two views, switched beside its heading and remembered per device
 (`store/useBracketView.ts`): the **tree** (`components/bracket/BracketTree.tsx`), one
@@ -784,6 +863,14 @@ Not built yet:
   hang. A `429` is still reported as its own outcome (`busy`), because another device on
   the club's wifi spends the same allowance. Fragments are cached for the life of the
   page for the same reason, and a refresh opts out of that cache with `freshSince`.
+- **`npm run preview` registers a real service worker** on its port, and an open tab
+  keeps the build it has until the update toast is tapped — or DevTools → Application →
+  Service workers → Update / Unregister. The dev server registers none.
+- **Workbox silently skips any file over 2 MiB.** The single JS chunk is about 640KB; if
+  it ever grows past the limit, raise `maximumFileSizeToCacheInBytes`, or the app quietly
+  stops opening offline with nothing failing in the build.
+- **Removing the service worker is not deleting the plugin.** Installed clients would go
+  on serving the last build forever. Ship `selfDestroying: true` for a while first.
 - **Hash routing is load-bearing.** GitHub Pages has no rewrite rules, so a real path
   would 404 on refresh. It also means a future share payload can ride in the fragment,
   which browsers never send to the server — a genuine privacy property, worth keeping.

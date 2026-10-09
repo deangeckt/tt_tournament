@@ -7,6 +7,7 @@ import {
   type RefreshQuestion,
 } from '../tttm/refresh'
 import { useAppStore } from './useAppStore'
+import { isOnline, useOnline } from './useOnline'
 
 /**
  * The one running rank refresh, and whatever it is waiting to be told.
@@ -27,15 +28,21 @@ interface RefreshState {
   current?: string
   /** Whether that lookup is queued behind the relay's per-minute allowance. */
   waiting: boolean
+  /** The device lost its network; the run is holding its place until it is back. */
+  paused: boolean
   question?: RefreshQuestion
   outcomes: RefreshOutcome[]
 
   /**
    * Begin a run over the whole roster. `onFinish` hears how it ended, from wherever
    * the manager is by then — which is why the confirmation is a callback and not
-   * something the settings screen notices on its next render.
+   * something the settings screen notices on its next render. `onPause` hears the
+   * same way when the connection goes. Refuses to begin with no network at all.
    */
-  start: (onFinish?: (status: 'done' | 'stopped', outcomes: RefreshOutcome[]) => void) => void
+  start: (
+    onFinish?: (status: 'done' | 'stopped', outcomes: RefreshOutcome[]) => void,
+    onPause?: () => void,
+  ) => void
   answer: (answer: RefreshAnswer) => void
   stop: () => void
   /** Put the summary away. */
@@ -49,16 +56,29 @@ interface RefreshState {
  */
 let generation = 0
 let pending: ((answer: RefreshAnswer) => void) | undefined
+/** Releases a run paused for the network: on reconnecting, or on a stop. */
+let resume: (() => void) | undefined
+
+function wake() {
+  const release = resume
+  resume = undefined
+  release?.()
+}
+
+useOnline.subscribe(({ online }) => {
+  if (online) wake()
+})
 
 export const useRankRefresh = create<RefreshState>((set, get) => ({
   status: 'idle',
   total: 0,
   done: 0,
   waiting: false,
+  paused: false,
   outcomes: [],
 
-  start(onFinish) {
-    if (get().status === 'running') return
+  start(onFinish, onPause) {
+    if (get().status === 'running' || !isOnline()) return
     const run = ++generation
     const live = () => run === generation
     // Nothing fetched before this moment may answer for it: a refresh that served
@@ -72,6 +92,7 @@ export const useRankRefresh = create<RefreshState>((set, get) => ({
       done: 0,
       current: undefined,
       waiting: false,
+      paused: false,
       question: undefined,
       outcomes: [],
     })
@@ -84,6 +105,20 @@ export const useRankRefresh = create<RefreshState>((set, get) => ({
           pending = resolve
           set({ question })
         }),
+      waitForConnection: () =>
+        // Asked of navigator directly, the same source the lookup just read: were
+        // this the store, a moment where the two disagree would retry and fail in
+        // a loop of microtasks that never lets the 'online' event through.
+        navigator.onLine
+          ? Promise.resolve()
+          : new Promise<void>((resolve) => {
+              resume = () => {
+                if (live()) set({ paused: false })
+                resolve()
+              }
+              set({ paused: true })
+              onPause?.()
+            }),
       async apply(player, match) {
         if (!live()) return
         const { roster, patchRosterPlayer } = useAppStore.getState()
@@ -112,6 +147,7 @@ export const useRankRefresh = create<RefreshState>((set, get) => ({
         status: result === 'done' ? 'done' : 'stopped',
         current: undefined,
         waiting: false,
+        paused: false,
         question: undefined,
       })
       onFinish?.(result, get().outcomes)
@@ -130,8 +166,16 @@ export const useRankRefresh = create<RefreshState>((set, get) => ({
     generation++
     const resolve = pending
     pending = undefined
-    set({ status: 'stopped', current: undefined, waiting: false, question: undefined })
+    set({
+      status: 'stopped',
+      current: undefined,
+      waiting: false,
+      paused: false,
+      question: undefined,
+    })
     resolve?.({ kind: 'stop' })
+    // A run paused for the network is let go too, to find itself stopped and settle.
+    wake()
   },
 
   dismiss() {

@@ -5,7 +5,7 @@ import { Button, Card, PageTitle } from '../components/common/ui'
 import { ImportPrompt } from '../components/data/ImportPrompt'
 
 /**
- * The six the first-run card leads with, out of the thirteen the about screen
+ * The six the first-run card leads with, out of the fourteen the about screen
  * expands on. Headlines only: somebody who has just arrived is deciding whether to
  * tap Create, not reading a manual — the rest, the consolation among them, is a tap
  * away rather than in front of somebody who has not run anything yet.

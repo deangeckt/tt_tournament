@@ -6,6 +6,12 @@ export interface Toast {
   tone: 'info' | 'success' | 'warn'
   /** Optional single action, e.g. undo. */
   action?: { label: string; run: () => void }
+  /**
+   * Stays until it is answered or closed, and never counts toward the three on screen.
+   * For a decision that can wait — a new version to reload into — never for a
+   * confirmation: a confirmation that does not go away is a banner nobody reads.
+   */
+  persistent?: boolean
 }
 
 interface ToastState {
@@ -20,8 +26,12 @@ export const useToasts = create<ToastState>((set) => ({
   toasts: [],
   push(toast) {
     const id = nextId++
-    // Keep at most three on screen; older ones drop off the end.
-    set((state) => ({ toasts: [{ ...toast, id }, ...state.toasts].slice(0, 3) }))
+    // Keep at most three passing toasts on screen; older ones drop off the end. A
+    // persistent one is exempt, or three quick scores would push it off unanswered.
+    let room = 3
+    set((state) => ({
+      toasts: [{ ...toast, id }, ...state.toasts].filter((t) => t.persistent || room-- > 0),
+    }))
     return id
   },
   dismiss(id) {

@@ -114,6 +114,10 @@ export const en = {
     deviceBody:
       'Right-to-left in Hebrew, left-to-right in English and Russian, light or dark theme — all on the settings screen. Every control is sized for a thumb.',
 
+    offlineTitle: 'Works with no connection, and installs like an app',
+    offlineBody:
+      'After the first visit the whole app is kept on the device, so it opens and runs a tournament in a hall with no signal — share links included. Install it from Settings to put it on the home screen. Only shortening a link and looking up TTTM ranks need the internet, and they wait for it.',
+
     limitsTitle: 'Worth knowing',
     limitsLead: 'Results you are going to rely on are worth knowing the shape of the thing holding them.',
 
@@ -144,9 +148,9 @@ export const en = {
     limitTablesBody:
       'The table count sizes what is offered as ready to play and the duration estimate. It does not put a table number on a match.',
 
-    limitOnlineTitle: 'The first load needs a connection',
+    limitOnlineTitle: 'The first visit needs a connection',
     limitOnlineBody:
-      'The page itself has to be fetched — there is no offline copy. Once it has loaded, running the tournament needs no connection.',
+      'That visit is what saves the app to the device; after it, everything works offline except shortening a share link and looking up TTTM ranks. A short link needs a connection to open; the full one opens offline on any device that already has the app.',
 
     sourceTitle: 'Open source',
     sourceBody: 'Built for Derech Ben, a table tennis club in Haifa, and free for any club to use or change.',
@@ -395,6 +399,7 @@ export const en = {
     shortening: 'Shortening…',
     shortenFailed: 'No shortening service answered, so this is the full link. It works just as well, but it is long.',
     shortenTooLong: 'This tournament is too large to shorten, so this is the full link.',
+    shortenOffline: 'No connection, so this is the full link. It works just as well, and it will be shortened as soon as the connection is back.',
     tooLong: 'This tournament is too large for a link. Print it, or export a backup from Settings.',
     qrTitle: 'QR code',
     qrHint: 'Point a phone at this to open the results.',
@@ -493,10 +498,11 @@ export const en = {
     pickOne: 'More than one player by that name — pick the right one.',
     noClub: 'No club',
     position: 'no. {{n}} nationally',
-    // Reached through `rank.<outcome>`, so these three names are load-bearing.
+    // Reached through `rank.<outcome>`, so these four names are load-bearing.
     none: 'TTTM has nobody by that name. If they are registered but the season’s ranking list is not out yet, paste a link to their page below.',
     busy: 'Too many lookups in the last minute. Give it a moment and try again.',
     unreachable: 'Could not reach TTTM. Try again, or type the number in above.',
+    offline: 'No connection. Looking someone up needs the internet — typing the number in above works as always.',
     linkLabel: 'Or paste a link to their TTTM page',
     linkPlaceholder: 'https://www.tttm.co.il/p/676/…',
     fetch: 'Read it',
@@ -518,6 +524,9 @@ export const en = {
     waiting: 'Waiting for TTTM — it takes about twenty lookups a minute…',
     stop: 'Stop',
     stoppedToast: 'Rank refresh stopped',
+    pausedToast: 'Rank refresh paused — no connection',
+    paused: 'No connection — paused here, and it carries on once the connection is back.',
+    offlineNote: 'No connection. Refreshing ranks needs the internet.',
     finished: 'Every player was checked.',
     stoppedAfter: 'Stopped after {{done}} of {{total}}.',
     doneToast: 'Ranks refreshed — {{summary}}',
@@ -546,6 +555,24 @@ export const en = {
     retry: 'Try again',
     skip: 'Skip this player',
     stopAll: 'Stop the refresh',
+  },
+  connection: {
+    offline: 'No connection. The tournament carries on as usual; rank lookups and short links wait until it is back.',
+    back: 'Back online',
+  },
+  pwa: {
+    updateReady: 'A new version is ready',
+    reload: 'Reload',
+    offlineReady: 'Saved to this device — it will open even with no connection',
+  },
+  install: {
+    title: 'Install the app',
+    hint: 'Put it on your home screen: it opens like any other app, works with no connection, and the browser is far less likely to clear your data.',
+    action: 'Install',
+    ios: 'In Safari, tap Share, then “Add to Home Screen”.',
+    iosData: 'The home-screen app keeps its own data, apart from Safari’s, so it opens empty. Export a backup above first, then load it in the app.',
+    installed: 'Installed — open it from your home screen or app list.',
+    done: 'App installed',
   },
   restore: {
     title: 'Bring your players with you',

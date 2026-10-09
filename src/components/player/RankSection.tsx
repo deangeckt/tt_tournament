@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player } from '../../engine/types'
 import { useAppStore } from '../../store/useAppStore'
+import { useOnline } from '../../store/useOnline'
 import { fetchTttmPhoto, fetchTttmPlayer, searchTttm } from '../../tttm/lookup'
 import { playerPageUrl, type TttmPlayer } from '../../tttm/parse'
 import { Button, inputClass } from '../common/ui'
@@ -9,7 +10,9 @@ import { toast } from '../../store/useToasts'
 import { TttmMatchList } from './TttmMatchList'
 
 /**
- * A player's ranking points, and the three ways of arriving at them.
+ * A player's ranking points, and the three ways of arriving at them. Only typing it
+ * works offline, so the other two are switched off — with the reason shown — while
+ * the device has no network.
  *
  * The number is what the draw wants — it bands the field so people meet others of
  * their own standard — and the reason there are three ways in is that the league's
@@ -25,6 +28,7 @@ import { TttmMatchList } from './TttmMatchList'
 export function RankSection({ player }: { player: Player }) {
   const { t } = useTranslation()
   const patchRosterPlayer = useAppStore((s) => s.patchRosterPlayer)
+  const online = useOnline((s) => s.online)
 
   const [draft, setDraft] = useState(player.rank === undefined ? '' : String(player.rank))
   const [open, setOpen] = useState(false)
@@ -34,6 +38,9 @@ export function RankSection({ player }: { player: Player }) {
   const [found, setFound] = useState<TttmPlayer[] | null>(null)
   /** An i18n key for whatever the last lookup had to say, when it was not a result. */
   const [problem, setProblem] = useState<string | null>(null)
+  // No network says so before anything is tried, and stops saying it the moment the
+  // network is back — a stale "offline" from a lookup an hour ago is not news.
+  const shown = online ? (problem === 'rank.offline' ? null : problem) : 'rank.offline'
 
   const commit = async () => {
     const trimmed = draft.trim()
@@ -169,7 +176,10 @@ export function RankSection({ player }: { player: Player }) {
                   className={inputClass}
                   autoComplete="off"
                 />
-                <Button onClick={() => void runSearch()} disabled={busy !== null || !term.trim()}>
+                <Button
+                  onClick={() => void runSearch()}
+                  disabled={busy !== null || !term.trim() || !online}
+                >
                   {busy === 'search' ? t('rank.searching') : t('rank.search')}
                 </Button>
               </div>
@@ -188,9 +198,9 @@ export function RankSection({ player }: { player: Player }) {
               </div>
             ) : null}
 
-            {problem ? (
+            {shown ? (
               <p className="rounded-xl bg-ball-500/12 px-3 py-2 text-sm text-ball-600">
-                {t(problem as 'rank.none')}
+                {t(shown as 'rank.none')}
               </p>
             ) : null}
 
@@ -213,7 +223,7 @@ export function RankSection({ player }: { player: Player }) {
                 <Button
                   variant="subtle"
                   onClick={() => void runLink()}
-                  disabled={busy !== null || !link.trim()}
+                  disabled={busy !== null || !link.trim() || !online}
                 >
                   {busy === 'link' ? t('rank.searching') : t('rank.fetch')}
                 </Button>

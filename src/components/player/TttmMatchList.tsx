@@ -35,11 +35,13 @@ export function TttmMatchList({
             {match.photo ? (
               // Decorative: the name is right next to it. Routed through the same
               // image relay the saved photograph goes through, so browsing the list
-              // tells TTTM nothing.
+              // tells TTTM nothing. The ground is the no-photo disc's, so a thumbnail
+              // that cannot load — offline, or the relay down — looks like no photo
+              // rather than a broken image.
               <img
                 src={photoThumbUrl(match.photo, 96)}
                 alt=""
-                className="h-9 w-9 shrink-0 rounded-full object-cover"
+                className="h-9 w-9 shrink-0 rounded-full bg-court-100 object-cover dark:bg-court-800"
               />
             ) : (
               <span

@@ -19,6 +19,7 @@ import { ViewShared } from './routes/ViewShared'
 import { Button } from './components/common/ui'
 import { Tooltip } from './components/common/Tooltip'
 import { ToastHost } from './components/common/Toast'
+import { OfflineBar } from './components/common/OfflineBar'
 import { RankRefreshPrompt } from './components/player/RankRefreshPrompt'
 import { toast } from './store/useToasts'
 import { CLUB_URL } from './links'
@@ -114,6 +115,8 @@ function Header() {
           </Tooltip>
         ) : null}
       </div>
+      {/* Inside the sticky header, so it stays in view however far a screen scrolls. */}
+      <OfflineBar />
     </header>
   )
 }

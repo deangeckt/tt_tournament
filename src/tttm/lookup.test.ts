@@ -69,3 +69,56 @@ describe('freshSince', () => {
     expect(fetched).toHaveLength(2)
   })
 })
+
+describe('offline', () => {
+  it('answers offline without a request, and spends none of the allowance', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+    const { fetchTttmPlayer, relayFreeAt, searchTttm } = await import('./lookup')
+    expect(await fetchTttmPlayer('676')).toEqual({ kind: 'offline' })
+    expect(await searchTttm('עמית גורן')).toEqual({ kind: 'offline' })
+    expect(fetched).toHaveLength(0)
+    expect(relayFreeAt()).toBe(Date.now())
+  })
+
+  it('still answers from the cache', async () => {
+    const network = { onLine: true }
+    vi.stubGlobal('navigator', network)
+    const { fetchTttmPlayer } = await import('./lookup')
+    await fetchTttmPlayer('676')
+    network.onLine = false
+    expect((await fetchTttmPlayer('676')).kind).toBe('ok')
+    expect(fetched).toHaveLength(1)
+  })
+
+  it('reads a connection lost mid-request as offline, not unreachable, and tries no other term', async () => {
+    const network = { onLine: true }
+    vi.stubGlobal('navigator', network)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetched.push(url)
+        network.onLine = false
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    const { fetchTttmPlayer, searchTttm } = await import('./lookup')
+    // Two words, so two terms the search would otherwise go on to.
+    expect(await searchTttm('עמית גורן')).toEqual({ kind: 'offline' })
+    expect(fetched).toHaveLength(1)
+
+    network.onLine = true
+    expect(await fetchTttmPlayer('676')).toEqual({ kind: 'offline' })
+  })
+
+  it('is still unreachable when the device says it is online', async () => {
+    vi.stubGlobal('navigator', { onLine: true })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    const { fetchTttmPlayer } = await import('./lookup')
+    expect(await fetchTttmPlayer('676')).toEqual({ kind: 'unreachable' })
+  })
+})

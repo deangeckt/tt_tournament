@@ -20,8 +20,14 @@ import { nameKey, rankMatches, type TttmPlayer } from './parse'
  * Whatever is picked is linked by id, which is what makes the next refresh of that
  * player silent.
  *
- * Pure apart from what it is handed: the network, the question and the write all
- * come in through `RefreshDeps`, which is what lets the whole decision tree run
+ * Losing the connection is not a question. Asked "try again?" per player, a manager
+ * whose wifi dropped would answer it forty times; and no answer but waiting can help.
+ * So the run waits — on the same player, asking nobody — and carries on when the
+ * network is back. `RefreshQuestion` has no offline reason, so it cannot be put to
+ * anyone.
+ *
+ * Pure apart from what it is handed: the network, the question, the wait and the
+ * write all come in through `RefreshDeps`, which is what lets the whole decision tree run
  * under the plain node test environment.
  */
 
@@ -83,6 +89,8 @@ export interface RefreshDeps {
   search: (name: string) => Promise<TttmResult<TttmPlayer[]>>
   /** Put a question to the manager and wait for the answer. */
   ask: (question: RefreshQuestion) => Promise<RefreshAnswer>
+  /** Settle once the device has a network again — or once the run is stopped. */
+  waitForConnection: () => Promise<void>
   /** Write the rank, and link the player to the TTTM record it came from. */
   apply: (player: Player, match: TttmPlayer) => Promise<void>
   /** Told as each player is started, with how many came before them. */
@@ -97,11 +105,13 @@ type Step =
   | { kind: 'ambiguous'; candidates: TttmPlayer[]; exact: boolean }
   | { kind: 'none' }
   | { kind: 'failed'; reason: 'busy' | 'unreachable' }
+  | { kind: 'offline' }
 
 async function locate(player: Player, deps: RefreshDeps): Promise<Step> {
   if (player.tttmId !== undefined) {
     const own = await deps.byId(player.tttmId)
     if (own.kind === 'ok') return { kind: 'found', match: own.value }
+    if (own.kind === 'offline') return { kind: 'offline' }
     if (own.kind !== 'none') return { kind: 'failed', reason: own.kind }
     // The stored id no longer reads as a player — renumbered, or the page changed
     // shape. Fall back to the name, the way a player who was never linked is found.
@@ -109,6 +119,7 @@ async function locate(player: Player, deps: RefreshDeps): Promise<Step> {
   const found = await deps.search(player.name)
   if (found.kind === 'ok') return identify(player.name, found.value)
   if (found.kind === 'none') return { kind: 'none' }
+  if (found.kind === 'offline') return { kind: 'offline' }
   return { kind: 'failed', reason: found.kind }
 }
 
@@ -132,6 +143,11 @@ async function refreshOne(player: Player, deps: RefreshDeps): Promise<RefreshOut
 
     if (step.kind === 'found') return take(step.match)
     if (step.kind === 'none') return outcome('notFound')
+    if (step.kind === 'offline') {
+      await deps.waitForConnection()
+      if (deps.stopped()) return 'stop'
+      continue // the same player again, and nobody asked
+    }
 
     const answer = await deps.ask(
       step.kind === 'ambiguous'

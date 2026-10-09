@@ -114,3 +114,35 @@ export async function shortenUrl(url: string): Promise<string | null> {
   }
   return null
 }
+
+/** Where the share sheet's link stands, which decides both the request and the note. */
+export type LinkState = 'short' | 'tooLong' | 'offline' | 'failed' | 'shortening'
+
+/**
+ * Read off the facts rather than kept beside them, so the request and the note under
+ * the link can never disagree.
+ *
+ * The order is the point. A link already shortened stays shortened whatever the
+ * network does since. One too long to shorten is too long whether or not there is a
+ * connection. And no network is said as itself: it is not a shortener being down,
+ * and no "try again" helps until the connection is back — at which point the sheet
+ * shortens by itself.
+ */
+export function linkState({
+  canShorten,
+  hasShort,
+  failed,
+  online,
+}: {
+  canShorten: boolean
+  hasShort: boolean
+  /** Every shortener already failed on this link. */
+  failed: boolean
+  online: boolean
+}): LinkState {
+  if (hasShort) return 'short'
+  if (!canShorten) return 'tooLong'
+  if (!online) return 'offline'
+  if (failed) return 'failed'
+  return 'shortening'
+}

@@ -3,12 +3,21 @@ import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
 import type { Tournament } from '../../engine/types'
 import { SAFE_URL_LENGTH, shareUrl } from '../../share/payload'
-import { SHORTENABLE_URL_LENGTH, shortenUrl } from '../../share/shorten'
+import { SHORTENABLE_URL_LENGTH, linkState, shortenUrl, type LinkState } from '../../share/shorten'
 import { printPage } from '../../share/print'
 import { summaryText } from '../../share/summary'
 import { Button, Ltr } from '../common/ui'
 import { Sheet } from '../common/Sheet'
 import { toast } from '../../store/useToasts'
+import { useOnline } from '../../store/useOnline'
+
+/** The line under a link that is not (yet) short — a short one explains itself. */
+const NOTES = {
+  shortening: 'share.shortening',
+  failed: 'share.shortenFailed',
+  offline: 'share.shortenOffline',
+  tooLong: 'share.shortenTooLong',
+} as const satisfies Record<Exclude<LinkState, 'short'>, string>
 
 export function ShareSheet({
   open,
@@ -26,18 +35,25 @@ export function ShareSheet({
   const [short, setShort] = useState<{ long: string; url: string } | null>(null)
   /** The long url a shortener already failed on, so the effect stops retrying it. */
   const [failed, setFailed] = useState<string | null>(null)
+  const online = useOnline((s) => s.online)
 
   const longUrl = useMemo(() => (open ? shareUrl(tournament) : ''), [open, tournament])
   const tooLong = longUrl.length > SAFE_URL_LENGTH
   const shortUrl = short?.long === longUrl ? short.url : null
   const canShorten = !tooLong && longUrl.length <= SHORTENABLE_URL_LENGTH
   /**
-   * A request is in flight exactly when a link can be shortened and neither answer has
-   * arrived yet — which is a fact about the other three values, not a fourth thing to
-   * keep in step with them. It is also what triggers the effect below, so the spinner
-   * and the request can never disagree.
+   * A request is in flight exactly when a link can be shortened, there is a network to
+   * shorten it over, and neither answer has arrived yet — which is a fact about the
+   * values above, not another thing to keep in step with them. It is also what
+   * triggers the effect below, so the spinner and the request can never disagree.
    */
-  const shortening = open && canShorten && !shortUrl && failed !== longUrl
+  const state = linkState({
+    canShorten,
+    hasShort: shortUrl !== null,
+    failed: failed === longUrl,
+    online,
+  })
+  const shortening = open && state === 'shortening'
   // Everything downstream — clipboard, QR, WhatsApp — uses the one link there is. The
   // long url is a fallback, not a choice: it appears only when no shortener answered
   // or the tournament is too large for one.
@@ -70,6 +86,20 @@ export function ShareSheet({
     }
   }, [shortening, longUrl])
 
+  /**
+   * Back online, start over. A request that was out as the connection went comes back
+   * as a failure that was never the shortener's, and clearing it lets the sheet
+   * shorten by itself — the manager who opened it offline should not have to know to
+   * press anything. Driven by the reconnect itself, not by watching `online`.
+   */
+  useEffect(
+    () =>
+      useOnline.subscribe((now, before) => {
+        if (now.online && !before.online) setFailed(null)
+      }),
+    [],
+  )
+
   useEffect(() => {
     if (!open || tooLong) return
     let live = true
@@ -88,18 +118,7 @@ export function ShareSheet({
 
   const qrImage = qr?.url === url ? qr.data : null
 
-  /**
-   * What the line under the link has to say — which is nothing once a short link is
-   * there. Only an *absent* or pending short link needs explaining; a present one
-   * explains itself.
-   */
-  const note = shortening
-    ? t('share.shortening')
-    : shortUrl
-      ? null
-      : canShorten
-        ? t('share.shortenFailed')
-        : t('share.shortenTooLong')
+  const note = state === 'short' ? null : t(NOTES[state])
 
   const copy = async () => {
     try {
@@ -137,7 +156,7 @@ export function ShareSheet({
                 {/* The only thing to press about shortening: try the services again
                     after one of them was down. Clearing the failure restarts the
                     effect. */}
-                {canShorten && failed === longUrl ? (
+                {state === 'failed' ? (
                   <Button variant="subtle" size="sm" onClick={() => setFailed(null)}>
                     ✂️ {t('share.shorten')}
                   </Button>

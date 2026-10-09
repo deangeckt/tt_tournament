@@ -33,6 +33,7 @@ const FEATURES = [
   'sharing',
   'backup',
   'device',
+  'offline',
 ] as const
 
 /**

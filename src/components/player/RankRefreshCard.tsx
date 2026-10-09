@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useAppStore } from '../../store/useAppStore'
+import { useOnline } from '../../store/useOnline'
 import { useRankRefresh } from '../../store/useRankRefresh'
 import { toast } from '../../store/useToasts'
 import { refreshCounts } from '../../i18n/counts'
@@ -36,6 +37,8 @@ export function RankRefreshCard() {
   const done = useRankRefresh((s) => s.done)
   const current = useRankRefresh((s) => s.current)
   const waiting = useRankRefresh((s) => s.waiting)
+  const paused = useRankRefresh((s) => s.paused)
+  const online = useOnline((s) => s.online)
   const outcomes = useRankRefresh((s) => s.outcomes)
   const start = useRankRefresh((s) => s.start)
   const stop = useRankRefresh((s) => s.stop)
@@ -45,11 +48,14 @@ export function RankRefreshCard() {
   const open = roster.find((p) => p.id === openId) ?? null
 
   const begin = () =>
-    start((result, finished) => {
-      const summary = refreshCounts(t, finished)
-      if (result === 'done') toast(t('refresh.doneToast', { summary }))
-      else toast(t('refresh.stoppedToast'), 'info')
-    })
+    start(
+      (result, finished) => {
+        const summary = refreshCounts(t, finished)
+        if (result === 'done') toast(t('refresh.doneToast', { summary }))
+        else toast(t('refresh.stoppedToast'), 'info')
+      },
+      () => toast(t('refresh.pausedToast'), 'info'),
+    )
 
   const halt = () => {
     stop()
@@ -85,7 +91,12 @@ export function RankRefreshCard() {
                 <span className="font-semibold tabular-nums">
                   {t('refresh.progress', { done, total })}
                 </span>
-                {current ? (
+                {paused ? (
+                  <>
+                    {' · '}
+                    {t('refresh.paused')}
+                  </>
+                ) : current ? (
                   <>
                     {' · '}
                     {waiting ? t('refresh.waiting') : t('refresh.looking', { name: current })}
@@ -174,7 +185,7 @@ export function RankRefreshCard() {
         {running ? null : (
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <Button onClick={begin} disabled={roster.length === 0}>
+              <Button onClick={begin} disabled={roster.length === 0 || !online}>
                 ↻ {finished ? t('refresh.again') : t('refresh.start')}
               </Button>
               {finished ? (
@@ -183,8 +194,15 @@ export function RankRefreshCard() {
                 </Button>
               ) : null}
             </div>
-            {/* Said beside the button that does it, as the card's own lookup says it. */}
-            <p className="text-sm text-court-500 dark:text-court-300">{t('refresh.relayNote')}</p>
+            {/* Said beside the button that does it, as the card's own lookup says it —
+                and why the button is off, in words, when there is no network. */}
+            {online ? (
+              <p className="text-sm text-court-500 dark:text-court-300">{t('refresh.relayNote')}</p>
+            ) : (
+              <p className="rounded-xl bg-ball-500/12 px-3 py-2 text-sm text-ball-600">
+                {t('refresh.offlineNote')}
+              </p>
+            )}
           </div>
         )}
       </Card>

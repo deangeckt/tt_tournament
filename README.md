@@ -56,6 +56,9 @@ watch standings and brackets update live.
   arriving in a share link added to this device's history, recognising players you
   already have by name.
 - **Hebrew, English and Russian**, full RTL, light/dark/system themes, sized for a phone.
+- **Works offline, installs like an app** — after the first visit the whole app is kept
+  on the device, so it opens and runs a night in a hall with no signal, share links
+  included. Install it from settings to put it on the home screen.
 
 ## Limitations
 
@@ -82,8 +85,10 @@ its אודות screen.
   crosses them out. It does not create walkovers for the matches they leave behind.
 - **Tables are counted, not assigned.** `tableCount` sizes "up next" and the duration
   estimate; `Tournament.tableAssignments` exists and is unused.
-- **No offline install.** There is no service worker or manifest, so the page itself has
-  to load from the network. Running the evening afterwards does not.
+- **The first visit needs a connection.** That visit is what saves the app to the
+  device. Offline, a share link stays long until the connection is back, and rank
+  lookups wait for it. On iOS an app added to the home screen keeps storage of its own,
+  apart from Safari's, so it starts empty — load a backup into it.
 
 ## Development
 

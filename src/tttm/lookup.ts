@@ -52,13 +52,16 @@ const TIMEOUT_MS = 12000
  * league has never heard of this person and the manager should type the number or
  * paste a link, the other means the relay is down and the very same search will work
  * later. 'busy' is the relay's own rate limit, which is the one failure that clears
- * on its own within the minute.
+ * on its own within the minute. 'offline' is the device itself having no network,
+ * which no retry can fix until it comes back — so it is never put to the manager as
+ * something to try again.
  */
 export type TttmResult<T> =
   | { kind: 'ok'; value: T }
   | { kind: 'none' }
   | { kind: 'busy' }
   | { kind: 'unreachable' }
+  | { kind: 'offline' }
 
 /**
  * Same fragment, same answer, for as long as the app is open.
@@ -112,6 +115,16 @@ export interface LookupOptions {
 }
 
 class RelayBusy extends Error {}
+class Offline extends Error {}
+
+/**
+ * The device says it has no network. Only ever trusted in this direction — "online"
+ * means some network, not a working one — and read at call time, so a test can say
+ * so with a stubbed navigator.
+ */
+function offline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+}
 
 async function readFragment(
   url: string,
@@ -121,6 +134,9 @@ async function readFragment(
   const key = `${selector} ${url}`
   const cached = cache.get(key)
   if (cached !== undefined && cached.at >= freshSince) return cached.html
+  // Before taking a slot: a request that cannot leave the device should not spend
+  // the relay's allowance, or wait a minute for it.
+  if (offline()) throw new Offline()
 
   await relaySlot()
   const controller = new AbortController()
@@ -136,6 +152,9 @@ async function readFragment(
     const html = await response.text()
     cache.set(key, { html, at })
     return html
+  } catch (error) {
+    // The connection went while the request was out.
+    throw offline() ? new Offline() : error
   } finally {
     clearTimeout(timer)
   }
@@ -170,6 +189,8 @@ export async function searchTttm(
       answered = true
       if (found.length > 0) return { kind: 'ok', value: rankMatches(found, name) }
     } catch (error) {
+      // No term after this one can do any better.
+      if (error instanceof Offline) return { kind: 'offline' }
       if (error instanceof RelayBusy) busy = true
     }
   }
@@ -202,6 +223,7 @@ export async function fetchTttmPlayer(
     // rearranged leaves us with.
     return { kind: 'ok', value: { ...player, name: player.name || fromSlug || '' } }
   } catch (error) {
+    if (error instanceof Offline) return { kind: 'offline' }
     return { kind: error instanceof RelayBusy ? 'busy' : 'unreachable' }
   }
 }

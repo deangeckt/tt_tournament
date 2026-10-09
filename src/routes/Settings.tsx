@@ -16,6 +16,7 @@ import { useTheme } from '../store/useTheme'
 import { THEMES, type ThemePref } from '../store/theme'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
+import { InstallCard } from '../components/data/InstallCard'
 import { RankRefreshCard } from '../components/player/RankRefreshCard'
 import { toast } from '../store/useToasts'
 import { navigate } from '../router'
@@ -144,6 +145,10 @@ export function Settings() {
           </Button>
         </div>
       </Card>
+
+      {/* Next to the data it protects: installing is what keeps a browser from
+          clearing it. */}
+      <InstallCard />
 
       <RankRefreshCard />
 
