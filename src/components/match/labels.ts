@@ -57,9 +57,10 @@ export function roundLabel(
     case 3:
       return perfect ? t('round.last16') : t('round.number', { n: round + 1 })
     default:
-      // 2^(remaining+1) players are still in at the start of this round.
+      // 2^(remaining+1) players are still in at the start of this round, in half as
+      // many matches — which is what Russian counts: the round of 32 is "1/16 финала".
       return perfect
-        ? t('round.of', { n: 2 ** (remaining + 1) })
+        ? t('round.of', { n: 2 ** (remaining + 1), matches: 2 ** remaining })
         : t('round.number', { n: round + 1 })
   }
 }

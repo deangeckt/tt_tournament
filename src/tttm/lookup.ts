@@ -66,19 +66,67 @@ export type TttmResult<T> =
  * The sheet re-runs a search whenever it is reopened, and the relay counts every
  * request against a per-minute allowance. Nothing here is written, so a stale read
  * costs nothing worse than a rank that was already a week old.
+ *
+ * Each entry remembers when it was fetched, because the one caller that must not
+ * be handed an old answer — refreshing every rank — can then say "nothing from
+ * before I started" and still share a fetch between two players of one surname.
  */
-const cache = new Map<string, string>()
+const cache = new Map<string, { html: string; at: number }>()
+
+/**
+ * The relay's allowance: twenty requests a minute from one address, with no key.
+ *
+ * Kept under rather than discovered by a 429, because refreshing a whole roster is
+ * forty requests and a run that tripped the limit every twentieth player would stop
+ * to ask about an error it could have waited out. Two short of the limit leaves room
+ * for the lookup somebody makes by hand while it runs. A manager searching one name
+ * at a time never comes near it, and never waits.
+ */
+const RELAY_WINDOW_MS = 60_000
+const RELAY_PER_WINDOW = 18
+/** When each request inside the current window went out, oldest first. */
+const sent: number[] = []
+
+/** When the relay will next take a request within its allowance; `now` means at once. */
+export function relayFreeAt(now = Date.now()): number {
+  while (sent.length > 0 && sent[0] <= now - RELAY_WINDOW_MS) sent.shift()
+  return sent.length < RELAY_PER_WINDOW ? now : sent[0] + RELAY_WINDOW_MS
+}
+
+async function relaySlot(): Promise<void> {
+  for (;;) {
+    const now = Date.now()
+    const at = relayFreeAt(now)
+    if (at <= now) {
+      sent.push(now)
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, at - now))
+  }
+}
+
+/** What a caller can ask of the cache. */
+export interface LookupOptions {
+  /** Ignore anything cached before this moment (a `Date.now()` value). */
+  freshSince?: number
+}
 
 class RelayBusy extends Error {}
 
-async function readFragment(url: string, selector: string): Promise<string> {
+async function readFragment(
+  url: string,
+  selector: string,
+  { freshSince = 0 }: LookupOptions = {},
+): Promise<string> {
   const key = `${selector} ${url}`
   const cached = cache.get(key)
-  if (cached !== undefined) return cached
+  if (cached !== undefined && cached.at >= freshSince) return cached.html
 
+  await relaySlot()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
+    const at = Date.now()
     const response = await fetch(RELAY + encodeURIComponent(url), {
       headers: { 'x-respond-with': 'html', 'x-target-selector': selector },
       signal: controller.signal,
@@ -86,7 +134,7 @@ async function readFragment(url: string, selector: string): Promise<string> {
     if (response.status === 429) throw new RelayBusy()
     if (!response.ok) throw new Error(`relay ${response.status}`)
     const html = await response.text()
-    cache.set(key, html)
+    cache.set(key, { html, at })
     return html
   } finally {
     clearTimeout(timer)
@@ -102,7 +150,10 @@ async function readFragment(url: string, selector: string): Promise<string> {
  * to the name asked for is first; the manager picks, because two people really do
  * share a name and no amount of sorting can choose between them.
  */
-export async function searchTttm(name: string): Promise<TttmResult<TttmPlayer[]>> {
+export async function searchTttm(
+  name: string,
+  options?: LookupOptions,
+): Promise<TttmResult<TttmPlayer[]>> {
   const terms = searchTerms(name)
   if (terms.length === 0) return { kind: 'none' }
 
@@ -113,7 +164,9 @@ export async function searchTttm(name: string): Promise<TttmResult<TttmPlayer[]>
 
   for (const term of terms) {
     try {
-      const found = parseRankingRows(await readFragment(searchPageUrl(term), TABLE_SELECTOR))
+      const found = parseRankingRows(
+        await readFragment(searchPageUrl(term), TABLE_SELECTOR, options),
+      )
       answered = true
       if (found.length > 0) return { kind: 'ok', value: rankMatches(found, name) }
     } catch (error) {
@@ -132,13 +185,18 @@ export async function searchTttm(name: string): Promise<TttmResult<TttmPlayer[]>
  * season's first ranking list is published is exactly that case, and it is the case
  * a club hits every autumn.
  */
-export async function fetchTttmPlayer(input: string): Promise<TttmResult<TttmPlayer>> {
+export async function fetchTttmPlayer(
+  input: string,
+  options?: LookupOptions,
+): Promise<TttmResult<TttmPlayer>> {
   const tttmId = tttmIdFrom(input)
   if (tttmId === null) return { kind: 'none' }
 
   const fromSlug = nameFromUrl(input)
   try {
-    const player = parsePlayerCard(await readFragment(playerPageUrl(tttmId, fromSlug), CARD_SELECTOR))
+    const player = parsePlayerCard(
+      await readFragment(playerPageUrl(tttmId, fromSlug), CARD_SELECTOR, options),
+    )
     if (!player) return { kind: 'none' }
     // The card's own name is the authority; the slug is what a page that has been
     // rearranged leaves us with.

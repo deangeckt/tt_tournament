@@ -10,12 +10,13 @@ import {
   stashImportSummary,
   type ImportMode,
 } from '../store/backup'
-import { applyLocale, type Locale } from '../i18n'
+import { applyLocale, LOCALES, LOCALE_NAMES, type Locale } from '../i18n'
 import { dataCounts } from '../i18n/counts'
 import { useTheme } from '../store/useTheme'
 import { THEMES, type ThemePref } from '../store/theme'
 import { Button, Card, Chip, PageTitle } from '../components/common/ui'
 import { Tooltip } from '../components/common/Tooltip'
+import { RankRefreshCard } from '../components/player/RankRefreshCard'
 import { toast } from '../store/useToasts'
 import { navigate } from '../router'
 
@@ -144,15 +145,21 @@ export function Settings() {
         </div>
       </Card>
 
+      <RankRefreshCard />
+
       <Card className="mb-4 space-y-2">
         <h2 className="text-lg font-bold">{t('settings.languageTitle')}</h2>
         <div className="flex flex-wrap gap-2">
-          <Chip selected={i18n.language === 'he'} onClick={() => switchTo('he')}>
-            עברית
-          </Chip>
-          <Chip selected={i18n.language === 'en'} onClick={() => switchTo('en')}>
-            English
-          </Chip>
+          {LOCALES.map((locale) => (
+            <Chip
+              key={locale}
+              lang={locale}
+              selected={i18n.language === locale}
+              onClick={() => switchTo(locale)}
+            >
+              {LOCALE_NAMES[locale]}
+            </Chip>
+          ))}
         </div>
       </Card>
 

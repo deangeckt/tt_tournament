@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player } from '../../engine/types'
 import { useAppStore } from '../../store/useAppStore'
-import { fetchTttmPhoto, fetchTttmPlayer, photoThumbUrl, searchTttm } from '../../tttm/lookup'
+import { fetchTttmPhoto, fetchTttmPlayer, searchTttm } from '../../tttm/lookup'
 import { playerPageUrl, type TttmPlayer } from '../../tttm/parse'
-import { Button, Ltr, inputClass } from '../common/ui'
+import { Button, inputClass } from '../common/ui'
 import { toast } from '../../store/useToasts'
+import { TttmMatchList } from './TttmMatchList'
 
 /**
  * A player's ranking points, and the three ways of arriving at them.
@@ -179,48 +180,11 @@ export function RankSection({ player }: { player: Player }) {
                 <p className="mb-1.5 text-sm text-court-600 dark:text-court-200">
                   {found.length > 1 ? t('rank.pickOne') : t('rank.oneFound')}
                 </p>
-                <ul className="divide-y divide-court-200/70 overflow-hidden rounded-xl bg-white dark:divide-court-700/70 dark:bg-court-900">
-                  {found.map((match) => (
-                    <li key={match.tttmId}>
-                      <button
-                        type="button"
-                        disabled={busy !== null}
-                        onClick={() => void apply(match)}
-                        className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-start
-                          transition hover:bg-court-50 disabled:opacity-50 dark:hover:bg-court-800"
-                      >
-                        {match.photo ? (
-                          // Decorative: the name is right next to it. Routed through
-                          // the same image relay the saved photograph goes through,
-                          // so browsing the list tells TTTM nothing.
-                          <img
-                            src={photoThumbUrl(match.photo, 96)}
-                            alt=""
-                            className="h-9 w-9 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span
-                            aria-hidden="true"
-                            className="h-9 w-9 shrink-0 rounded-full bg-court-100 dark:bg-court-800"
-                          />
-                        )}
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{match.name}</span>
-                          <span className="block truncate text-sm text-court-500 dark:text-court-300">
-                            {match.club ?? t('rank.noClub')}
-                            {match.category ? ` · ${match.category}` : ''}
-                            {match.position !== undefined
-                              ? ` · ${t('rank.position', { n: match.position })}`
-                              : ''}
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-bold tabular-nums">
-                          <Ltr>{match.rank}</Ltr>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <TttmMatchList
+                  matches={found}
+                  disabled={busy !== null}
+                  onPick={(match) => void apply(match)}
+                />
               </div>
             ) : null}
 

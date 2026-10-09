@@ -1,7 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-// Self-hosted so the app keeps its typography offline. Latin and Hebrew subsets only.
+// Self-hosted so the app keeps its typography offline. Latin and Hebrew subsets only;
+// Cyrillic comes from Roboto, declared in index.css.
 import '@fontsource/heebo/latin-400.css'
 import '@fontsource/heebo/latin-500.css'
 import '@fontsource/heebo/latin-700.css'

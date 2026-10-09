@@ -51,7 +51,6 @@ export const en = {
     create: 'New tournament',
     resume: 'Continue',
     players_one: '{{count}} player',
-    players_two: '{{count}} players',
     players_other: '{{count}} players',
   },
   /* The about screen, and the six headlines the home screen's empty state borrows.
@@ -77,7 +76,7 @@ export const en = {
 
     ranksTitle: 'Real ranking points from the Israeli league (TTTM)',
     ranksBody:
-      'Add a player straight out of the league database — search by name, paste a link to their page, or type the number — and they arrive with their true ranking points and their photograph. Ranks are frozen at the draw, so a revision later in the season never changes a night already played.',
+      'Add a player straight out of the league database — search by name, paste a link to their page, or type the number — and they arrive with their true ranking points and their photograph. Ranks are frozen at the draw, so a revision later in the season never changes a night already played — and one button in settings brings every player’s rank up to date.',
 
     orderTitle: 'The order the matches are played in',
     orderBody:
@@ -111,9 +110,9 @@ export const en = {
     backupBody:
       'Back everything up to one file and import it on another phone. A tournament from a share link can be added to your history, with players you already have recognised by name.',
 
-    deviceTitle: 'Hebrew and English, dark mode, built for a phone',
+    deviceTitle: 'Hebrew, English and Russian, dark mode, built for a phone',
     deviceBody:
-      'Right-to-left in Hebrew, left-to-right in English, light or dark theme — all on the settings screen. Every control is sized for a thumb.',
+      'Right-to-left in Hebrew, left-to-right in English and Russian, light or dark theme — all on the settings screen. Every control is sized for a thumb.',
 
     limitsTitle: 'Worth knowing',
     limitsLead: 'Results you are going to rely on are worth knowing the shape of the thing holding them.',
@@ -150,7 +149,7 @@ export const en = {
       'The page itself has to be fetched — there is no offline copy. Once it has loaded, running the tournament needs no connection.',
 
     sourceTitle: 'Open source',
-    sourceBody: 'Built for a table tennis club in Haifa, and free for any club to use or change.',
+    sourceBody: 'Built for Derech Ben, a table tennis club in Haifa, and free for any club to use or change.',
     source: 'Source on GitHub',
   },
   wizard: {
@@ -194,10 +193,10 @@ export const en = {
     singleElimHint: 'Straight knockout. One loss and you are out.',
     doubleElim: 'Double elimination',
     doubleElimHint: 'A second chance through the losers bracket.',
-    groups: '{{count}} groups',
+    groups_one: '{{count}} group',
+    groups_other: '{{count}} groups',
     advance: 'top {{count}} advance',
     matches_one: '{{count}} match',
-    matches_two: '{{count}} matches',
     matches_other: '{{count}} matches',
     perPlayer: 'at least {{count}} each',
     consolation: 'Consolation',
@@ -221,10 +220,8 @@ export const en = {
     addPlaceholder: 'Player name',
     empty: 'No saved players yet.',
     count_one: '{{count}} player',
-    count_two: '{{count}} players',
     count_other: '{{count}} players',
     selected_one: '{{count}} selected',
-    selected_two: '{{count}} selected',
     selected_other: '{{count}} selected',
     orderLabel: 'Order',
     orderRank: 'Rank',
@@ -413,10 +410,8 @@ export const en = {
     adoptHint:
       'Saves the whole tournament here alongside the others. Players you already have are matched by name, so one person keeps one career record however many devices the night was run on.',
     adoptNew_one: '{{count}} player joins your saved players',
-    adoptNew_two: '{{count}} players join your saved players',
     adoptNew_other: '{{count}} players join your saved players',
     adoptMatched_one: '{{count}} player recognised from your saved players',
-    adoptMatched_two: '{{count}} players recognised from your saved players',
     adoptMatched_other: '{{count}} players recognised from your saved players',
     adoptReplaces: 'This tournament is already on this device. Adding it replaces that copy.',
     adoptDone: 'Added to this device',
@@ -451,7 +446,6 @@ export const en = {
     storageTitle: 'Storage',
     storageHint: 'Clearing site data still erases everything, so keep an exported backup.',
     tournamentCount_one: '{{count}} tournament',
-    tournamentCount_two: '{{count}} tournaments',
     tournamentCount_other: '{{count}} tournaments',
     aboutTitle: 'About',
     aboutText:
@@ -512,6 +506,47 @@ export const en = {
     relayNote:
       'A lookup asks an outside service to fetch the TTTM page, because tttm.co.il cannot be read from a web page directly. Only the name or link you look up leaves this device.',
   },
+  refresh: {
+    title: 'TTTM ranks',
+    hint: 'Fetch every saved player’s current points from TTTM, one at a time — including the ones that already have a rank, since the league revises them every week. When a name could be more than one person, you are asked who you meant.',
+    start: 'Refresh every rank',
+    again: 'Refresh again',
+    relayNote:
+      'Each player’s name passes through an outside service, the same one a single lookup uses. TTTM allows about twenty lookups a minute, so a long list takes a few minutes.',
+    progress: '{{done}} of {{total}}',
+    looking: 'Looking up {{name}}…',
+    waiting: 'Waiting for TTTM — it takes about twenty lookups a minute…',
+    stop: 'Stop',
+    stoppedToast: 'Rank refresh stopped',
+    finished: 'Every player was checked.',
+    stoppedAfter: 'Stopped after {{done}} of {{total}}.',
+    doneToast: 'Ranks refreshed — {{summary}}',
+    updated_one: '{{count}} updated',
+    updated_other: '{{count}} updated',
+    unchanged_one: '{{count}} unchanged',
+    unchanged_other: '{{count}} unchanged',
+    notFound_one: '{{count}} not found',
+    notFound_other: '{{count}} not found',
+    skipped_one: '{{count}} skipped',
+    skipped_other: '{{count}} skipped',
+    updatedTitle: 'Updated',
+    firstRank: 'first rank',
+    missingTitle: 'Still without a fresh rank',
+    missingHint: 'Tap a name to open their card, where you can search another spelling or paste a link to their TTTM page.',
+    tagNotFound: 'not found',
+    tagSkipped: 'skipped',
+    dismiss: 'Clear',
+    step: 'Player {{n}} of {{total}}',
+    chooseTitle: 'Which {{name}}?',
+    chooseExact: 'TTTM has more than one player called {{name}}. Pick the one on your list.',
+    chooseNear: 'TTTM has nobody called exactly {{name}}. Is it one of these?',
+    failedTitle: 'Could not look up {{name}}',
+    busy: 'Too many lookups in the last minute. Wait a moment, then try again.',
+    unreachable: 'TTTM could not be reached — the connection, or the service that relays it, may be down.',
+    retry: 'Try again',
+    skip: 'Skip this player',
+    stopAll: 'Stop the refresh',
+  },
   restore: {
     title: 'Bring your players with you',
     body: 'Nothing is saved on this device yet. If you exported a backup from another phone or laptop, load it here — your players, their ranks and every tournament come across with it.',
@@ -532,11 +567,25 @@ export const en = {
   },
 } as const
 
+/** The CLDR plural categories i18next picks a key suffix from: `players_few`. */
+export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other'
+
 /**
  * Widens the literal types from `as const` back to `string`, so a translation must
- * supply every key but is free to supply different text. Typing `he` as this makes a
- * missing or misspelled key a compile error rather than a silent fallback to English.
+ * supply every key but is free to supply different text. Typing a language as this
+ * makes a missing or misspelled key a compile error rather than a silent fallback.
+ *
+ * Plural keys are the exception to "the same keys": every plural family in English is
+ * re-keyed to the categories `P` names, because each language has its own — English
+ * one/other, Hebrew a dual, Russian one/few/many. i18next has no fallback from a
+ * missing `_few` to `_other`; it drops straight to another language, so a Russian
+ * count of 3 without a `_few` would come out in Hebrew. Base keys must not contain an
+ * underscore, or the template below matches the wrong one.
  */
-type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> }
+type Translated<T, P extends PluralCategory> = {
+  [K in keyof T as K extends `${infer Base}_${PluralCategory}` ? `${Base}_${P}` : K]: T[K] extends string
+    ? string
+    : Translated<T[K], P>
+}
 
-export type Resources = Translated<typeof en>
+export type Resources<P extends PluralCategory> = Translated<typeof en, P>

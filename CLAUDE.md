@@ -9,7 +9,8 @@ competitors, draw the tournament, tap in scores, watch standings and brackets up
 Open source, deployed as a static site on GitHub Pages. **No backend, no accounts** —
 everything lives in the browser.
 
-UI language is Hebrew with an English toggle. Code, comments and commits are English.
+UI language is Hebrew, with English and Russian on the settings screen. Code, comments
+and commits are English.
 
 ## Commands
 
@@ -30,6 +31,19 @@ Running a subset of tests:
 npx vitest run src/engine/__tests__/standings.test.ts   # one file
 npx vitest run -t "three-way cycle"                     # one test by name
 ```
+
+Wiping every tournament and saved player — paste into the browser console on the page
+whose data should go:
+
+```js
+const r = indexedDB.open('tt-tournament'); r.onsuccess = () => { const db = r.result; const tx = db.transaction(['tournaments', 'roster'], 'readwrite'); tx.objectStore('tournaments').clear(); tx.objectStore('roster').clear(); tx.oncomplete = () => { db.close(); location.reload() } }
+```
+
+It clears the two stores rather than calling `indexedDB.deleteDatabase`, because the
+open app holds a connection and a delete would sit `blocked` until the tab closed. Data
+is per-origin, so it wipes only the address it runs on: the dev port, or the deployed
+site, never both. Preferences (language, theme, views) are in `localStorage` under
+`tt.*` and survive it. There is no undo — export a backup from settings first.
 
 `rankedNight.test.ts` is the one end-to-end test: it freezes ranks the way the wizard
 does, derives two levels, then plays them by repeatedly taking whatever sits at the
@@ -407,6 +421,34 @@ selector, so it is small and predictable, and regex keeps the parser runnable un
 plain node test environment the rest of the engine uses instead of pulling jsdom in for
 one file.
 
+### Refreshing every rank
+
+TTTM revises its points weekly, so the settings screen can refresh the whole roster in
+one pass (`tttm/refresh.ts`, pure and tested; run by `store/useRankRefresh.ts`). It
+always fetches — `LookupOptions.freshSince` makes the cache ignore anything older than
+the run — and it stops only where a person is needed:
+
+- A player with a stored `tttmId` is read straight off their page. No namesake can
+  confuse an id, which is why every pick is saved as one: the second refresh of a
+  player you had to choose for is silent.
+- Anyone else is searched by name, and `identify` takes **exactly one exact match** and
+  nothing less. Two exact matches is a question (the two עמית גורן again), and so is a
+  near spelling — every word of a two-word name inside TTTM's — since "דני כהן" may or
+  may not be "דניאל כהן". Nobody close is *not found*, reported, never asked about:
+  stopping for every club member who is not in the league would make the run a quiz.
+- A relay failure is a question too: try again, skip, or stop.
+
+The run lives in a store and `RankRefreshPrompt` is mounted in `App`, not on settings,
+because forty players at the relay's allowance is a couple of minutes and the manager
+may walk off to the player list to watch ranks arrive; the question has to find them.
+Dismissing the prompt skips that one player — the mildest answer, so a stray tap on the
+scrim costs one rank, not the run. Nothing a refresh writes touches a drawn level:
+ranks are frozen onto levels (`store/ranks.ts`), and the refresh only patches the roster.
+
+`lookup.ts` keeps requests under the relay's allowance itself (`relayFreeAt`, 18 in any
+60 seconds) rather than finding the limit by a `429`. It applies to every lookup, but a
+manager searching by hand never comes near it.
+
 ### The tiebreak chain
 
 `standings.ts` implements the ITTF chain: match points → head-to-head → game ratio →
@@ -487,12 +529,27 @@ and every result looks reversed. Same reason the quick-entry buttons name their 
 and the walkover buttons dropped their arrows: nothing about who won should have to be
 inferred from which side a glyph landed on.
 
-**i18n.** `src/i18n/en.ts` is the type source; `he.ts` is typed as `Resources`, so a
-missing or misspelled key is a **compile error**. Hebrew needs `_one/_two/_other`
-plural suffixes, so English carries a `_two` variant it never selects, purely to keep
-the key sets symmetric. Default language is Hebrew unless the user explicitly switched
-— deliberately *not* derived from `navigator.language`, since plenty of Israeli clubs
-run their browser in English.
+**i18n.** `src/i18n/en.ts` is the type source; `he.ts` and `ru.ts` are typed as
+`Resources<…>`, so a missing or misspelled key is a **compile error**. The type
+parameter is the language's plural categories — Hebrew `one | two | other`, Russian
+`one | few | many | other` — and every plural family in English is re-keyed to them,
+so each file carries exactly the forms its language has: no `_two` in English, and a
+Russian count of 3 without `_few` does not compile. That matters because i18next has
+no `_other` fallback: a missing form drops to `fallbackLng`, so the sentence would come
+out in Hebrew. `locales.test.ts` checks the declared categories against what `Intl`
+selects, and that a form more than one number selects prints `{{count}}` — Hebrew's
+`_one` may say "שחקן אחד", Russian's is also 21.
+
+`src/i18n/locales.ts` is the list of languages; registering one there is the whole
+job, except for the inline script in `index.html`, which runs before modules and
+keeps its own copy (there is a test). Heebo has no Cyrillic, so `index.css` declares
+Roboto's — Heebo is Roboto's Latin with Hebrew added — under a `unicode-range`, which
+is why it is not fontsource's per-subset CSS: those files have no range, and the
+browser would fetch the face for every glyph Heebo lacks on a page with no Russian on it.
+
+Default language is Hebrew unless the user explicitly switched — deliberately *not*
+derived from `navigator.language`, since plenty of Israeli clubs run their browser in
+English.
 
 **TypeScript.** `erasableSyntaxOnly` is on: **no `enum`, no `namespace`, no parameter
 properties.** Use `as const` objects with a derived union. `verbatimModuleSyntax` means
@@ -617,7 +674,7 @@ ITTF standings, round robin, single elimination, groups→knockout, multiple lev
 in-tournament editing (levels added, removed and re-formatted; players moved between
 them), withdrawals, the tiebreak resolver (game scores for one dead heat, entered from
 the standings table itself), light/dark/system theme, deleting a tournament (confirmed, with undo),
-Hebrew/English RTL, player profiles (photo, career record, tournament history) opened
+Hebrew/English/Russian with RTL, player profiles (photo, career record, tournament history) opened
 from any list of players including the wizard's, share
 links + QR + print/PDF, always-shortened share links, adopting a shared tournament into
 this device's own history, JSON export/import from the settings screen, and the doodle
@@ -650,6 +707,10 @@ lead the first-run card (`HIGHLIGHTS` in `routes/Home.tsx`), so there is no seco
 to keep in step — and a title has to read on its own, since half its appearances have no
 body under them. `README.md` is a third depth and the only one that can drift.
 
+Since then: **refreshing every rank** from the settings screen — see *Refreshing every
+rank* above — which asks only when a name could be more than one person or a lookup
+failed.
+
 The knockout stage has two views, switched beside its heading and remembered per device
 (`store/useBracketView.ts`): the **tree** (`components/bracket/BracketTree.tsx`), one
 column per round collapsing to a champion leaf, which is the default because it is the
@@ -667,7 +728,11 @@ knockout as 1/8, 1/4, 1/2, final, so `roundsForField` sets the rounds shown and
 first real match — leaving the chairs a bye would sit in empty. Eight players get an
 eight-tree. Seats exist only in the layout: no match id, no score, nothing stored. The
 tree never scrolls: it measures its frame, narrows the columns first and scales the
-drawing after, because a bracket that has to be panned is not one picture.
+drawing after, because a bracket that has to be panned is not one picture. Once the
+columns have narrowed (`fitMetrics`' `compact`) the nodes grow taller and a name may
+take two lines — first name over surname — instead of being cut to four letters and an
+ellipsis on a phone; height is the one thing the tree can spare, since the page scrolls.
+For the same reason the games column is drawn only in a match that has a score.
 Nodes open the same score sheet as the cards, and the read-only shared view offers the
 same switch without it. On paper the tree scales itself to the sheet through
 `--tt-print-zoom`.
@@ -714,10 +779,11 @@ Not built yet:
   change refuses to appear, compare `curl localhost:<port>/src/path.tsx` against disk
   before debugging the code; the fix is restarting the dev server.
 - **The rank relay is rate-limited**, at twenty requests a minute per IP with no key.
-  Ample for a manager typing names one at a time, and the reason there is no "fetch
-  every rank" button; a `429` is reported as its own outcome (`busy`) because it is the
-  one failure that clears on its own within the minute. Fragments are cached for the
-  life of the page for the same reason.
+  Ample for a manager typing names one at a time; the whole-roster refresh paces itself
+  under it (`relayFreeAt`), so a long roster takes minutes, not seconds — that is not a
+  hang. A `429` is still reported as its own outcome (`busy`), because another device on
+  the club's wifi spends the same allowance. Fragments are cached for the life of the
+  page for the same reason, and a refresh opts out of that cache with `freshSince`.
 - **Hash routing is load-bearing.** GitHub Pages has no rewrite rules, so a real path
   would 404 on refresh. It also means a future share payload can ride in the fragment,
   which browsers never send to the server — a genuine privacy property, worth keeping.

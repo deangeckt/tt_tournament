@@ -19,6 +19,7 @@ import { ViewShared } from './routes/ViewShared'
 import { Button } from './components/common/ui'
 import { Tooltip } from './components/common/Tooltip'
 import { ToastHost } from './components/common/Toast'
+import { RankRefreshPrompt } from './components/player/RankRefreshPrompt'
 import { toast } from './store/useToasts'
 import { CLUB_URL } from './links'
 
@@ -55,7 +56,9 @@ function Header() {
             />
           </a>
           {/* The title carries the app's full name at a size that reads as a heading
-              rather than a breadcrumb. It shrinks before the controls do. */}
+              rather than a breadcrumb. It shrinks before the controls do, which is why
+              they do not wrap: "О приложении" is two words, and a squeezed button
+              would stack them rather than leave the title to truncate. */}
           <a
             href={hrefFor({ name: 'home' })}
             className="min-w-0 truncate rounded-lg px-1 py-1 text-lg font-extrabold tracking-tight
@@ -70,7 +73,7 @@ function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="px-2.5"
+              className="px-2.5 whitespace-nowrap"
               onClick={() => navigate({ name: 'roster' })}
               aria-label={t('nav.roster')}
             >
@@ -84,7 +87,7 @@ function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="px-2.5"
+              className="px-2.5 whitespace-nowrap"
               onClick={() => navigate({ name: 'settings' })}
               aria-label={t('nav.settings')}
             >
@@ -101,7 +104,7 @@ function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="px-2.5"
+              className="px-2.5 whitespace-nowrap"
               onClick={() => navigate({ name: 'about' })}
               aria-label={t('about.title')}
             >
@@ -170,6 +173,9 @@ export function App() {
         {route.name === 'view' && <ViewShared payload={route.payload} />}
         {route.name === 'run' && <Run id={route.id} />}
       </main>
+      {/* Here rather than on settings: a rank refresh outlives the screen that
+          started it, and its questions have to find the manager wherever they are. */}
+      <RankRefreshPrompt />
       <ToastHost />
     </div>
   )

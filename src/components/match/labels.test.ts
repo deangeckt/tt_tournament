@@ -20,7 +20,7 @@ describe('round labels', () => {
 
   it('falls back to the field size for the early rounds of a big draw', () => {
     // Five rounds: 32 players, so the opening round is the round of 32.
-    expect(roundLabel(0, 4, t)).toBe('round.of:32')
-    expect(roundLabel(0, 5, t)).toBe('round.of:64')
+    expect(roundLabel(0, 4, t)).toBe('round.of:32,16')
+    expect(roundLabel(0, 5, t)).toBe('round.of:64,32')
   })
 })

@@ -18,21 +18,43 @@ const PRINT_WIDTH = 680
 
 /** Nodes shrink from their full width down to this before the whole tree scales. */
 const MIN_NODE_WIDTH = 104
-const MIN_COLUMN_GAP = 20
+const MIN_COLUMN_GAP = 16
+/**
+ * How tall a narrowed node is drawn: room for each name to take a second line.
+ *
+ * On a phone a sixteen-draw is scaled to about half size, and a name given one line
+ * of a narrowed node showed four letters and an ellipsis — with the rest of the node
+ * empty below it. Two lines puts a first name over a surname, which is how most
+ * names on a club list break anyway, and the tree only grows taller, which the page
+ * scrolls; width is the one thing it cannot spare.
+ */
+const COMPACT_NODE_HEIGHT = 84
 
 /**
  * Metrics that put the whole tree inside `width`: first by narrowing the columns
  * and the gaps between them, and only when even the narrowest columns will not fit,
  * by scaling the drawing down. Widths stay whole pixels so the connectors meet the
  * nodes on the same pixel they were laid out for.
+ *
+ * `compact` is set once the columns had to narrow, and is what lets names wrap.
  */
-function fitMetrics(width: number, columns: number): { metrics: TreeMetrics; zoom: number } {
+function fitMetrics(
+  width: number,
+  columns: number,
+): { metrics: TreeMetrics; zoom: number; compact: boolean } {
   const gap = width < 640 ? MIN_COLUMN_GAP : TREE_METRICS.columnGap
   const available = Math.floor((width - (columns - 1) * gap) / columns)
   const nodeWidth = Math.max(MIN_NODE_WIDTH, Math.min(TREE_METRICS.nodeWidth, available))
-  const metrics = { ...TREE_METRICS, nodeWidth, columnGap: gap }
+  const compact = nodeWidth < TREE_METRICS.nodeWidth
+  const nodeHeight = compact ? COMPACT_NODE_HEIGHT : TREE_METRICS.nodeHeight
+  const metrics = { ...TREE_METRICS, nodeWidth, nodeHeight, columnGap: gap }
   const natural = columns * nodeWidth + (columns - 1) * gap
-  return { metrics, zoom: Math.min(1, width / natural) }
+  return { metrics, zoom: Math.min(1, width / natural), compact }
+}
+
+/** A name in a node: one truncated line at full width, up to two once narrowed. */
+function nameClass(compact: boolean): string {
+  return compact ? 'line-clamp-2 break-words leading-snug' : 'truncate'
 }
 
 /**
@@ -104,7 +126,7 @@ export function BracketTree({
     return Math.max(real, minRounds) + 1
   }, [matches, minRounds])
   const fit = useMemo(
-    () => (width ? fitMetrics(width, columns) : { metrics: TREE_METRICS, zoom: 1 }),
+    () => (width ? fitMetrics(width, columns) : { metrics: TREE_METRICS, zoom: 1, compact: false }),
     [width, columns],
   )
   const layout = useMemo(
@@ -228,6 +250,7 @@ export function BracketTree({
                 key={node.id}
                 box={node}
                 metrics={fit.metrics}
+                compact={fit.compact}
                 label={participantLabel(participant, nameOf, groups, t)}
                 named={participant.kind === 'player'}
               />
@@ -239,6 +262,7 @@ export function BracketTree({
               key={node.id}
               box={node}
               metrics={fit.metrics}
+              compact={fit.compact}
               view={view}
               nameOf={nameOf}
               groups={groups}
@@ -261,7 +285,9 @@ export function BracketTree({
           />
         ) : null}
         <div
-          className={`print-keep absolute flex items-center gap-2 rounded-xl px-3 ${
+          className={`print-keep absolute flex items-center rounded-xl ${
+            fit.compact ? 'gap-1.5 px-2' : 'gap-2 px-3'
+          } ${
             champion
               ? 'bg-ball-500/15 font-bold ring-1 ring-ball-400/40'
               : 'text-court-400 ring-1 ring-court-200 dark:ring-court-700'
@@ -274,7 +300,7 @@ export function BracketTree({
           }}
         >
           <span aria-hidden="true">🏆</span>
-          <span className="min-w-0 flex-1 truncate">
+          <span className={`min-w-0 flex-1 ${nameClass(fit.compact)}`}>
             {champion ? nameOf(champion) : t('match.pending')}
           </span>
         </div>
@@ -302,11 +328,13 @@ function RoundHeading({ x, width, children }: { x: number; width: number; childr
 function SeatNode({
   box,
   metrics,
+  compact,
   label,
   named,
 }: {
   box: NodeBox
   metrics: TreeMetrics
+  compact: boolean
   label: string
   named: boolean
 }) {
@@ -321,13 +349,15 @@ function SeatNode({
         height: metrics.nodeHeight,
       }}
     >
-      <span className="flex min-h-0 flex-1 items-center px-3">
-        <span className={`min-w-0 flex-1 truncate text-sm ${named ? '' : 'text-court-400'}`}>
+      <span className={`flex min-h-0 flex-1 items-center ${compact ? 'px-2' : 'px-3'}`}>
+        <span
+          className={`min-w-0 flex-1 text-sm ${nameClass(compact)} ${named ? '' : 'text-court-400'}`}
+        >
           {label}
         </span>
       </span>
       <span aria-hidden="true" className="mx-2 border-t border-court-100 dark:border-court-800" />
-      <span className="flex min-h-0 flex-1 items-center px-3">
+      <span className={`flex min-h-0 flex-1 items-center ${compact ? 'px-2' : 'px-3'}`}>
         <span className="min-w-0 flex-1 truncate text-sm text-court-400">{t('match.bye')}</span>
       </span>
     </div>
@@ -337,6 +367,7 @@ function SeatNode({
 function MatchNode({
   box,
   metrics,
+  compact,
   view,
   nameOf,
   groups,
@@ -346,6 +377,7 @@ function MatchNode({
 }: {
   box: NodeBox
   metrics: TreeMetrics
+  compact: boolean
   view: MatchView
   nameOf: (id: PlayerId) => string
   groups: readonly Group[]
@@ -386,6 +418,7 @@ function MatchNode({
       <Row
         label={participantLabel(view.a, nameOf, groups, t)}
         participant={view.a}
+        compact={compact}
         games={result?.gamesA}
         won={result?.winner === 'a'}
         lost={result?.winner === 'b'}
@@ -394,6 +427,7 @@ function MatchNode({
       <Row
         label={participantLabel(view.b, nameOf, groups, t)}
         participant={view.b}
+        compact={compact}
         games={result?.gamesB}
         won={result?.winner === 'b'}
         lost={result?.winner === 'a'}
@@ -415,34 +449,42 @@ function MatchNode({
 function Row({
   label,
   participant,
+  compact,
   games,
   won,
   lost,
 }: {
   label: string
   participant: Participant
+  compact: boolean
   games?: number
   won: boolean
   lost: boolean
 }) {
   const named = participant.kind === 'player'
   return (
-    <span className="relative flex min-h-0 flex-1 items-center gap-2 px-3">
+    <span
+      className={`relative flex min-h-0 flex-1 items-center ${compact ? 'gap-1 px-2' : 'gap-2 px-3'}`}
+    >
       <span
-        className={`min-w-0 flex-1 truncate text-sm ${
+        className={`min-w-0 flex-1 text-sm ${nameClass(compact)} ${
           won ? 'font-bold' : lost ? 'text-court-500 dark:text-court-300' : ''
         } ${named ? '' : 'text-court-400 dark:text-court-400'}`}
       >
         {label}
       </span>
-      {/* One figure per row, so the games column lines up down the whole tree. */}
-      <span
-        className={`num w-5 shrink-0 text-center text-sm tabular-nums ${
-          won ? 'font-bold' : 'text-court-500 dark:text-court-300'
-        }`}
-      >
-        {games ?? ''}
-      </span>
+      {/* One figure per row, so the games column lines up down every scored match.
+          A match without a score has no column to line up, and leaves the room to
+          the names, which is where a narrowed node is short of it. */}
+      {games === undefined ? null : (
+        <span
+          className={`num shrink-0 text-center text-sm tabular-nums ${compact ? 'w-4' : 'w-5'} ${
+            won ? 'font-bold' : 'text-court-500 dark:text-court-300'
+          }`}
+        >
+          {games}
+        </span>
+      )}
     </span>
   )
 }

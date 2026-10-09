@@ -8,7 +8,7 @@ watch standings and brackets update live.
 
 בעברית: אפליקציה חינמית לניהול תחרות טניס שולחן — הגרלת בתים ונוק-אאוט, הזנת תוצאות
 וטבלאות דירוג חיות לפי חוקי ITTF. נבנתה עבור
-[דרך בן — טניס שולחן חיפה](https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/),
+[דרך בן — טניס שולחן חיפה](https://tthaifa-ben.org.il/),
 ופתוחה לשימוש כל מועדון.
 
  **No backend, no accounts, no tracking** — it is a static site, everything lives in your browser.
@@ -28,7 +28,9 @@ watch standings and brackets update live.
   bringing the league photograph with them. Given ranks the draw is *banded*: players of
   a similar standard meet each other, which is the opposite of championship seeding and
   deliberately so. Ranks are frozen onto the tournament at the draw, so a revision later
-  in the season never rearranges a night already played.
+  in the season never rearranges a night already played. One button in settings
+  refreshes every saved player's rank, stopping to ask only when a name could be more
+  than one person.
 - **A planned running order** — in a fully ranked group the match that decides
   qualification is played last (ITTF 3.7.5.5), nobody plays two matches in a row, and
   every batch in the list can go on the tables at the same time.
@@ -53,7 +55,7 @@ watch standings and brackets update live.
 - **Backup and adoption** — everything to a single JSON file and back, and a tournament
   arriving in a share link added to this device's history, recognising players you
   already have by name.
-- **Hebrew and English**, full RTL, light/dark/system themes, sized for a phone.
+- **Hebrew, English and Russian**, full RTL, light/dark/system themes, sized for a phone.
 
 ## Limitations
 
@@ -69,8 +71,9 @@ its אודות screen.
   chat — does upload it. A very large tournament cannot be shortened, and past a point
   cannot be shared as a link at all.
 - **Ranking lookups go through a relay**, since tttm.co.il sends no CORS header. It is
-  rate-limited to about twenty requests a minute. The league's own search matches one
-  word against one name field, so search by surname.
+  rate-limited to about twenty requests a minute, so refreshing a long roster takes a
+  few minutes. The league's own search matches one word against one name field, so
+  search by surname.
 - **Double elimination is not implemented.** Its card in the format picker is locked;
   without that, `resolve.ts` runs the level as a single elimination.
 - **A mid-match retirement is entered as a walkover.** `MatchResult` carries `retired`

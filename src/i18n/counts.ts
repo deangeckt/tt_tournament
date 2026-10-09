@@ -16,3 +16,21 @@ export function dataCounts(t: TFunction, tournaments: number, players: number): 
     count: players,
   })}`
 }
+
+/**
+ * "12 updated · 3 not found" — what a rank refresh came to, leaving out what it did
+ * not do.
+ *
+ * Shared for the same reason as `dataCounts`: the settings card and the toast that
+ * ends a run say it, and the toast may land on another screen entirely.
+ */
+export function refreshCounts(
+  t: TFunction,
+  outcomes: readonly { kind: 'updated' | 'unchanged' | 'notFound' | 'skipped' }[],
+): string {
+  return (['updated', 'unchanged', 'notFound', 'skipped'] as const)
+    .map((kind) => ({ kind, count: outcomes.filter((o) => o.kind === kind).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ kind, count }) => t(`refresh.${kind}`, { count }))
+    .join(' · ')
+}

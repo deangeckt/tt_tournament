@@ -53,6 +53,7 @@
     <meta property="og:site_name" content="דרך בן — טניס שולחן חיפה" />
     <meta property="og:locale" content="he_IL" />
     <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="ru_RU" />
     <meta property="og:title" content="ניהול תחרויות טניס שולחן — דרך בן, חיפה" />
     <meta
       property="og:description"
@@ -95,7 +96,7 @@
             "applicationCategory": "SportsApplication",
             "operatingSystem": "Any (web browser)",
             "browserRequirements": "Requires JavaScript",
-            "inLanguage": ["he", "en"],
+            "inLanguage": ["he", "en", "ru"],
             "isAccessibleForFree": true,
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ILS" },
             "license": "https://opensource.org/licenses/MIT",
@@ -122,6 +123,7 @@
             "description": "חוגי טניס שולחן (פינג פונג) ותחרויות בחיפה ובצפון.",
             "areaServed": { "@type": "City", "name": "חיפה" },
             "logo": "https://deangeckt.github.io/tt_tournament/og.jpg",
+            "url": "https://tthaifa-ben.org.il/",
             "sameAs": [
               "https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/",
               "https://github.com/deangeckt/tt_tournament"
@@ -135,8 +137,9 @@
       // LTR for a moment on every load, which reads as a broken layout in Hebrew, and
       // flashes the wrong theme — a white page in a dark room.
       try {
+        // Keep in step with src/i18n/locales.ts, which this runs too early to read.
         var l = localStorage.getItem('tt.locale');
-        if (l !== 'he' && l !== 'en') l = 'he';
+        if (l !== 'he' && l !== 'en' && l !== 'ru') l = 'he';
         document.documentElement.lang = l;
         document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
       } catch (e) {}
@@ -187,10 +190,7 @@
       <p>
         הכלי נבנה עבור <strong>דרך בן — טניס שולחן חיפה</strong>, מועדון וחוגי טניס שולחן
         בחיפה ובצפון, והוא פתוח לשימוש כל מועדון.
-        <a
-          href="https://www.facebook.com/p/%D7%97%D7%95%D7%92%D7%99-%D7%98%D7%A0%D7%99%D7%A1-%D7%A9%D7%95%D7%9C%D7%97%D7%9F-%D7%91%D7%97%D7%99%D7%A4%D7%94-%D7%95%D7%94%D7%A6%D7%A4%D7%95%D7%9F-61564986761748/"
-          >עמוד המועדון</a
-        >
+        <a href="https://tthaifa-ben.org.il/">עמוד המועדון</a>
         ·
         <a href="https://github.com/deangeckt/tt_tournament">קוד המקור ב-GitHub</a>
       </p>
