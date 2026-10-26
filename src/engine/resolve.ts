@@ -204,6 +204,7 @@ function mainFixtures(level: Level): { groups: Group[]; matches: Match[] } {
         config.groupCount,
         config.advancePerGroup,
         level.ranks,
+        config.separateGroups === true,
       )
     }
     case 'doubleElim': {

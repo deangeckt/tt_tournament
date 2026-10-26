@@ -201,6 +201,27 @@ it wins over anything generated; none ships, because the tables circulating for 
 four and up could not be verified against the current handbook, and a wrong "official"
 order is worse than an honest generated one.
 
+### Groupmates in the knockout
+
+Players who came through the same group must not meet again until as late as the
+bracket allows: two from a group only in the **final**, four no earlier than the
+semi-finals with the top two still in opposite halves. Standard seeding does not give
+that on its own — with four groups it puts A1 and A2 in the same half — and
+`repairGroupClashes` only ever protected the first round. `separateGroupmates` in
+`formats/groupsKnockout.ts` re-seats the qualifiers like for like (a runner-up only
+trades with another runner-up, and winners keep their seeds and byes) and changes
+nothing where standard seeding already kept groups apart, which is why a two-group
+night comes out identical either way. It is a small backtracking search, not a
+formula. The tests sweep every field the picker can produce, and the knockout is played
+out every possible way to check that nobody meets a groupmate before the final.
+
+It is versioned the way the consolation is: `config.separateGroups`, set by
+`defaultConfig`, absent on every level drawn before it. Re-seating a knockout that was
+already played would detach every result in it and take a finished night's champion
+with it, so an old level keeps the bracket it was played on. **Drawing again** is the way
+in (`redrawnConfig`), since a redraw throws the results away regardless. The consolation
+inherits the main draw's flag.
+
 ### The consolation
 
 A club night used to end early for most of the room: eight of sixteen are out after the

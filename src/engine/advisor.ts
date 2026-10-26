@@ -94,6 +94,9 @@ export function consolationConfig(main: FormatConfig, fieldSize: number): Format
       format: 'groupsKnockout',
       groupCount: suggestGroupCount(fieldSize),
       advancePerGroup: main.advancePerGroup,
+      // Seeded the way the main bracket is, so a consolation already under way on a
+      // level drawn before groupmates were kept apart keeps the bracket it is playing.
+      ...(main.separateGroups ? { separateGroups: true } : {}),
     }
     if (!validateConfig(sameAgain, fieldSize)) return sameAgain
   }
@@ -187,6 +190,9 @@ export function suggestGroupCount(playerCount: number): number {
  * off is one tap under the format card, and the card recounts the night's length the
  * moment it moves. Absent still means off, so this changes nothing about a level that
  * was already drawn, here or on someone else's device.
+ *
+ * Groupmates are kept apart in the knockout (`separateGroups`), which is not a choice
+ * at all — only a marker that this level is seeded the way draws are made now.
  */
 export function defaultConfig(format: FormatName, playerCount: number): FormatConfig {
   switch (format) {
@@ -196,6 +202,7 @@ export function defaultConfig(format: FormatName, playerCount: number): FormatCo
         groupCount: suggestGroupCount(playerCount),
         advancePerGroup: 2,
         consolation: true,
+        separateGroups: true,
       }
     case 'singleElim':
       return { format, consolation: true }
@@ -204,6 +211,17 @@ export function defaultConfig(format: FormatName, playerCount: number): FormatCo
     case 'doubleElim':
       return { format }
   }
+}
+
+/**
+ * A drawn level's config, brought up to the way a draw is made today.
+ *
+ * Only for a moment when the level's results are being thrown away regardless —
+ * drawing again — since that is when there is nothing left for a re-seated bracket to
+ * detach. Anywhere else an old level keeps the bracket it was played on.
+ */
+export function redrawnConfig(config: FormatConfig): FormatConfig {
+  return config.format === 'groupsKnockout' ? { ...config, separateGroups: true } : config
 }
 
 export function suggestedConfig(playerCount: number): FormatConfig {

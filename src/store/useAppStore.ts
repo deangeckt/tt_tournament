@@ -10,6 +10,7 @@ import type {
   Tournament,
 } from '../engine/types'
 import { buildFixtures } from '../engine/resolve'
+import { redrawnConfig } from '../engine/advisor'
 import { ranksOrNone, toppedUpRanks } from './ranks'
 import { generateSeed } from '../engine/rng'
 import type { AdoptPlan } from '../share/adopt'
@@ -360,6 +361,9 @@ export const useAppStore = create<AppState>((set, get) => ({
               // up numbers that have moved and the only way a tournament started
               // before anyone had a rank can begin using them.
               ranks: ranksOrNone(l.playerIds, get().roster),
+              // Likewise the way in for a level drawn before groupmates were kept
+              // apart in the knockout: with its results gone, re-seating costs nothing.
+              config: redrawnConfig(l.config),
             }
           : l,
       ),

@@ -134,6 +134,14 @@ export interface Group {
  *
  * Offered on the two formats that eliminate anybody. A round robin never does, and
  * double elimination's losers bracket already is one.
+ *
+ * `separateGroups` keeps the players a group sends through apart in the knockout until
+ * as late a round as the bracket allows — two from one group meet only in the final.
+ * It is not a choice anybody makes: every level drawn since it existed carries it, and
+ * the absence of it is how levels drawn before keep the bracket they were played on,
+ * which protected the first round only. Re-seating the qualifiers under a knockout
+ * already played would detach every result in it — a past night would lose its
+ * champion. Drawing again, or picking the format afresh, is the way in.
  */
 export type FormatConfig =
   | { format: 'roundRobin' }
@@ -144,6 +152,7 @@ export type FormatConfig =
       groupCount: number
       advancePerGroup: number
       consolation?: boolean
+      separateGroups?: boolean
     }
 
 export type FormatName = FormatConfig['format']

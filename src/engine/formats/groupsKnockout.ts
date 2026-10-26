@@ -1,4 +1,4 @@
-import type { Group, LevelId, Match, PlayerId, Slot } from '../types'
+import type { Group, GroupId, LevelId, Match, PlayerId, Slot } from '../types'
 import { nextPowerOfTwo, bracketSeedOrder, snakeIntoGroups } from '../draw'
 import { seedByRank } from '../schedule'
 import { generateGroupMatches } from './roundRobin'
@@ -73,8 +73,106 @@ export function repairGroupClashes(slots: Slot[]): Slot[] {
   return out
 }
 
-/** Pad qualifier slots into a full bracket and arrange them by standard seeding. */
-export function seedQualifiers(qualifiers: readonly Slot[]): Slot[] {
+/** Far more than any field the format picker can produce needs; see separateGroupmates. */
+const SEPARATION_BUDGET = 100_000
+
+/**
+ * Keep the players one group sends through apart for as long as the bracket allows.
+ *
+ * Two from a group can meet only in the final: the runner-up goes into the half its
+ * group winner is not in. Four can meet no earlier than the semi-finals: each has a
+ * quarter of its own, and the first two are still in opposite halves. In general the
+ * qualifier ranked `r` in its group sits in a different block of `size /
+ * nextPowerOfTwo(r)` seats from every groupmate ranked above it — halves for the
+ * second, quarters for the third and fourth. That is the ITTF draw rule for a group
+ * stage feeding a knockout, and what `repairGroupClashes` only ever promised for the
+ * first round: with four groups, standard seeding puts A1 and A2 in the same half,
+ * one semi-final away from playing each other again.
+ *
+ * Winners keep the seats standard seeding gave them, byes included, and every move is
+ * like for like — a runner-up only trades places with another runner-up — so the
+ * bracket is still seeded. Each seat keeps the qualifier seeding put there if that
+ * one fits, and otherwise takes the first that does in group order, so the result is
+ * deterministic and is the plain seeded bracket wherever that already kept groups
+ * apart.
+ *
+ * A search rather than a formula, because a seat handed out early can leave a later
+ * group with nowhere to go; it backtracks. Null if no arrangement exists or the search
+ * outruns its budget — the tests sweep every field the format picker can produce and
+ * find one every time, in under fifty steps, so the budget guards against a config made
+ * by hand, not against a club night.
+ */
+export function separateGroupmates(qualifiers: readonly Slot[]): Slot[] | null {
+  const size = nextPowerOfTwo(Math.max(qualifiers.length, 2))
+  const order = bracketSeedOrder(size)
+  const seatOf: number[] = []
+  order.forEach((seedNumber, seat) => {
+    seatOf[seedNumber - 1] = seat
+  })
+
+  const out: Slot[] = order.map((seedNumber) => qualifiers[seedNumber - 1] ?? { kind: 'bye' as const })
+  // Where each group's qualifiers sit so far: the winner from the start, the rest as
+  // the search places them. Qualifiers arrive rank by rank, so whenever one is placed
+  // every groupmate ranked above it already has a seat.
+  const seated = new Map<GroupId, number[]>()
+  const groupOrder: GroupId[] = []
+  const open: number[] = []
+  const unplaced = new Set<string>()
+  qualifiers.forEach((slot, i) => {
+    if (slot.kind !== 'groupRank') return
+    if (slot.rank === 1) {
+      seated.set(slot.groupId, [seatOf[i]])
+      groupOrder.push(slot.groupId)
+    } else {
+      open.push(i)
+      unplaced.add(`${slot.rank}:${slot.groupId}`)
+    }
+  })
+
+  let budget = SEPARATION_BUDGET
+  const fill = (next: number): boolean => {
+    if (next === open.length) return true
+    if (--budget < 0) return false
+
+    const seedIndex = open[next]
+    const slot = qualifiers[seedIndex]
+    if (slot.kind !== 'groupRank') return false
+    const seat = seatOf[seedIndex]
+    const apart = size / nextPowerOfTwo(slot.rank)
+
+    const candidates = [slot.groupId, ...groupOrder.filter((id) => id !== slot.groupId)]
+    for (const groupId of candidates) {
+      const key = `${slot.rank}:${groupId}`
+      const seats = seated.get(groupId)
+      if (!unplaced.has(key) || !seats) continue
+      // Two seats share a block of `apart` exactly when they differ only below it.
+      if (seats.some((other) => (other ^ seat) < apart)) continue
+
+      unplaced.delete(key)
+      seats.push(seat)
+      out[seat] = { kind: 'groupRank', groupId, rank: slot.rank }
+      if (fill(next + 1)) return true
+      seats.pop()
+      unplaced.add(key)
+    }
+    return false
+  }
+
+  return fill(0) ? out : null
+}
+
+/**
+ * Pad qualifier slots into a full bracket and arrange them by standard seeding.
+ *
+ * `separate` keeps each group's qualifiers apart until as late a round as the bracket
+ * allows (see separateGroupmates); without it only the first round is protected, which
+ * is how every level drawn before `separateGroups` existed was seeded and must stay.
+ */
+export function seedQualifiers(qualifiers: readonly Slot[], separate = false): Slot[] {
+  if (separate) {
+    const apart = separateGroupmates(qualifiers)
+    if (apart) return apart
+  }
   const size = nextPowerOfTwo(Math.max(qualifiers.length, 2))
   const order = bracketSeedOrder(size)
   const seeded = order.map((seedNumber) => qualifiers[seedNumber - 1] ?? { kind: 'bye' as const })
@@ -93,6 +191,8 @@ export function buildGroupsKnockout(
   advancePerGroup: number,
   /** The ranks the level was drawn against; they plan each group's running order. */
   ranks?: Readonly<Record<PlayerId, number>>,
+  /** Keep groupmates apart past the first round. See `FormatConfig.separateGroups`. */
+  separateGroups = false,
 ): GroupsKnockoutFixtures {
   const groups = buildGroups(levelId, orderedPlayers, groupCount)
   // Each group is planned on its own: a group where everyone is ranked gets the
@@ -103,6 +203,9 @@ export function buildGroupsKnockout(
       advance: advancePerGroup,
     }),
   )
-  const bracket = generateSingleElim(levelId, seedQualifiers(qualifierSlots(groups, advancePerGroup)))
+  const bracket = generateSingleElim(
+    levelId,
+    seedQualifiers(qualifierSlots(groups, advancePerGroup), separateGroups),
+  )
   return { groups, matches: [...groupMatches, ...bracket] }
 }

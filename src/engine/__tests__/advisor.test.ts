@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isImplemented, minimumPlayers, suggestedConfig } from '../advisor'
+import {
+  consolationConfig,
+  defaultConfig,
+  isImplemented,
+  minimumPlayers,
+  redrawnConfig,
+  suggestedConfig,
+} from '../advisor'
 import { buildFixtures } from '../resolve'
 import type { FormatName, Level } from '../types'
 
@@ -44,5 +51,35 @@ describe('isImplemented', () => {
 
   it('still reports a minimum field for the unbuilt format, so the card can be read', () => {
     expect(minimumPlayers('doubleElim')).toBeGreaterThan(0)
+  })
+})
+
+/*
+ * `separateGroups` is how a level says its knockout keeps groupmates apart, and its
+ * absence is how a level drawn before keeps the bracket it was played on. So it has to
+ * be on everything drawn now, and on nothing that has not been drawn again.
+ */
+describe('separateGroups', () => {
+  const legacy = { format: 'groupsKnockout', groupCount: 4, advancePerGroup: 2 } as const
+
+  it('is on every groups-then-knockout level drawn now', () => {
+    expect(defaultConfig('groupsKnockout', 16)).toMatchObject({ separateGroups: true })
+    expect(suggestedConfig(16)).toMatchObject({ separateGroups: true })
+  })
+
+  it('reaches an old level by drawing again, and touches no other format', () => {
+    expect(redrawnConfig(legacy)).toEqual({ ...legacy, separateGroups: true })
+    expect(redrawnConfig({ format: 'singleElim', consolation: true })).toEqual({
+      format: 'singleElim',
+      consolation: true,
+    })
+  })
+
+  it('carries into the consolation exactly when the main draw has it', () => {
+    expect(consolationConfig({ ...legacy, separateGroups: true }, 12)).toMatchObject({
+      format: 'groupsKnockout',
+      separateGroups: true,
+    })
+    expect(consolationConfig(legacy, 12)).not.toHaveProperty('separateGroups')
   })
 })

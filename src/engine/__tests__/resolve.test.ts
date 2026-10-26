@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFixtures, resolveLevel, type LevelView } from '../resolve'
-import type { FormatConfig, Level, MatchId, PlayerId, StoredResult } from '../types'
+import type { FormatConfig, Level, Match, MatchId, PlayerId, StoredResult } from '../types'
 
 const players = (n: number): PlayerId[] => Array.from({ length: n }, (_, i) => `p${i + 1}`)
 
@@ -256,5 +256,135 @@ describe('groups into knockout', () => {
     const { view } = playOut(makeLevel(config, 16))
     expect(view.champion).toBeDefined()
     expect(view.complete).toBe(true)
+  })
+})
+
+/**
+ * The round in which two bracket seats can first meet: 0 is the first round, and the
+ * last round is the final. Seats share a match in round R once they fall in the same
+ * block of 2^(R+1).
+ */
+function meetingRound(p: number, q: number): number {
+  let round = 0
+  while (Math.floor(p / 2 ** (round + 1)) !== Math.floor(q / 2 ** (round + 1))) round++
+  return round
+}
+
+/** Each group's qualifiers by rank, with the bracket seat the draw gave them. */
+function seatsByGroup(matches: readonly Match[]): { size: number; groups: Map<string, number[]> } {
+  const firstRound = matches.filter((m) => m.stage !== 'group' && m.round === 0 && !m.consolation)
+  const groups = new Map<string, number[]>()
+  for (const m of firstRound) {
+    for (const [slot, seat] of [[m.a, m.order * 2], [m.b, m.order * 2 + 1]] as const) {
+      if (slot.kind !== 'groupRank') continue
+      const seats = groups.get(slot.groupId) ?? []
+      seats[slot.rank - 1] = seat
+      groups.set(slot.groupId, seats)
+    }
+  }
+  return { size: firstRound.length * 2, groups }
+}
+
+describe('groupmates in the knockout', () => {
+  const apart = (groupCount: number, advancePerGroup: number): FormatConfig => ({
+    format: 'groupsKnockout',
+    groupCount,
+    advancePerGroup,
+    separateGroups: true,
+  })
+
+  // The report this exists for: four groups, two through from each, and A1 and A2 one
+  // semi-final away from playing each other a second time.
+  it('lets two from one group meet only in the final', () => {
+    for (let groupCount = 2; groupCount <= 11; groupCount++) {
+      const level = makeLevel(apart(groupCount, 2), groupCount * 4)
+      const { size, groups } = seatsByGroup(buildFixtures(level).matches)
+      const final = Math.log2(size) - 1
+      expect(groups.size).toBe(groupCount)
+      for (const [groupId, [winner, runnerUp]] of groups) {
+        expect(meetingRound(winner, runnerUp), `${groupCount} groups, ${groupId}`).toBe(final)
+      }
+    }
+  })
+
+  it('lets four from one group meet no earlier than the semi-finals, the top two in the final', () => {
+    for (let groupCount = 2; groupCount <= 11; groupCount++) {
+      const level = makeLevel(apart(groupCount, 4), groupCount * 5)
+      const { size, groups } = seatsByGroup(buildFixtures(level).matches)
+      const final = Math.log2(size) - 1
+      for (const [groupId, seats] of groups) {
+        const label = `${groupCount} groups, ${groupId}`
+        expect(seats.filter((seat) => seat !== undefined), label).toHaveLength(4)
+        expect(meetingRound(seats[0], seats[1]), label).toBe(final)
+        for (let i = 0; i < 4; i++) {
+          for (let j = i + 1; j < 4; j++) {
+            expect(meetingRound(seats[i], seats[j]), label).toBeGreaterThanOrEqual(final - 1)
+          }
+        }
+      }
+    }
+  })
+
+  it('never pairs groupmates before the final, whoever wins', () => {
+    const level = makeLevel(apart(4, 2), 16)
+    const groupStage: Results = {}
+    let view = resolveLevel(level, groupStage)
+    for (const m of view.matches.filter((m) => m.match.stage === 'group')) {
+      enter(view, groupStage, m.match.id)
+    }
+    view = resolveLevel(level, groupStage)
+
+    const groupOf = new Map<PlayerId, string>()
+    for (const group of view.groups) for (const id of group.playerIds) groupOf.set(id, group.id)
+    const knockout = view.matches.filter((m) => m.match.stage !== 'group')
+    const lastRound = Math.max(...knockout.map((m) => m.match.round))
+
+    // Every one of the 2^7 ways the knockout can go, not only the one where side A
+    // always wins — that path happens to keep A1 and A2 apart under the old seeding.
+    let finals = 0
+    const explore = (results: Results): void => {
+      const view = resolveLevel(level, results)
+      const next = view.matches.find((m) => m.match.stage !== 'group' && m.playable && !m.result)
+      if (!next) {
+        finals++
+        return
+      }
+      if (next.a.kind === 'player' && next.b.kind === 'player' && next.match.round < lastRound) {
+        expect(groupOf.get(next.a.playerId), next.match.id).not.toBe(groupOf.get(next.b.playerId))
+      }
+      for (const side of ['a', 'b'] as const) {
+        const branch = { ...results }
+        enter(view, branch, next.match.id, side)
+        explore(branch)
+      }
+    }
+    explore(groupStage)
+    expect(finals).toBe(2 ** 7)
+  })
+
+  it('moves nobody where standard seeding already kept the groups apart', () => {
+    const shape = (config: FormatConfig) =>
+      buildFixtures(makeLevel(config, 8)).matches.map((m) => [m.id, m.a, m.b])
+    expect(shape(apart(2, 2))).toEqual(
+      shape({ format: 'groupsKnockout', groupCount: 2, advancePerGroup: 2 }),
+    )
+  })
+
+  // Re-seating qualifiers under a knockout already played would detach every result in
+  // it, so a level drawn before the rule must go on deriving the bracket it was played
+  // on — the one that let A1 and A2 meet in a semi-final.
+  it('leaves a level drawn before the rule the bracket it was played on', () => {
+    const { matches } = buildFixtures(
+      makeLevel({ format: 'groupsKnockout', groupCount: 4, advancePerGroup: 2 }, 16),
+    )
+    const firstRound = matches
+      .filter((m) => m.stage !== 'group' && m.round === 0)
+      .map((m) => [m.a, m.b].map((s) => (s.kind === 'groupRank' ? `${s.groupId}#${s.rank}` : s.kind)))
+    expect(firstRound).toEqual([
+      ['L1:g0#1', 'L1:g3#2'],
+      ['L1:g3#1', 'L1:g0#2'],
+      ['L1:g1#1', 'L1:g2#2'],
+      ['L1:g2#1', 'L1:g1#2'],
+    ])
   })
 })
